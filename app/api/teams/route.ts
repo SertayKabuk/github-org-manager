@@ -16,9 +16,24 @@ export async function GET() {
       per_page: 100,
     });
 
-    // The list endpoint already provides all necessary fields including
-    // members_count and repos_count, so no need for individual getByName calls
-    const data: GitHubTeam[] = teams.map(mapTeam);
+    // The list endpoint doesn't include members_count and repos_count,
+    // so we need to fetch full details for each team
+    const teamsWithDetails = await Promise.all(
+      teams.map(async (team) => {
+        try {
+          const { data: fullTeam } = await octokit.rest.teams.getByName({
+            org,
+            team_slug: team.slug,
+          });
+          return fullTeam;
+        } catch (error) {
+          console.error(`Failed to fetch details for team ${team.slug}:`, error);
+          return team;
+        }
+      })
+    );
+
+    const data: GitHubTeam[] = teamsWithDetails.map(mapTeam);
 
     return NextResponse.json<ApiResponse<GitHubTeam[]>>({ data }, { status: 200 });
   } catch (error) {

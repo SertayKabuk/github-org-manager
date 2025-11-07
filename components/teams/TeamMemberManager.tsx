@@ -13,6 +13,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 
 import type { GitHubMember } from "@/lib/types/github";
 
@@ -103,8 +104,8 @@ export default function TeamMemberManager({
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250,
-        tolerance: 5,
+        delay: 200,
+        tolerance: 10,
       },
     })
   );
@@ -277,17 +278,24 @@ export default function TeamMemberManager({
   return (
     <section className="space-y-6">
       {renderFeedback()}
+      <Alert className="md:hidden">
+        <AlertDescription className="text-sm">
+          <strong>💡 Mobile tip:</strong> Use the <strong>+</strong> and <strong>−</strong> buttons on each card for quick actions. You can also press and hold to drag.
+        </AlertDescription>
+      </Alert>
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
+        modifiers={[restrictToWindowEdges]}
+        autoScroll={{ interval: 5, acceleration: 10 }}
       >
         <div className="grid gap-6 md:grid-cols-2">
           <DroppableZone id="team" isOver={dragOverTarget === "team"}>
             <Card
               className={[
-                "min-h-[400px] transition-colors",
+                "min-h-[300px] md:min-h-[400px] transition-colors",
                 dragOverTarget === "team" ? "border-primary bg-primary/5" : "",
               ]
                 .filter(Boolean)
@@ -310,7 +318,7 @@ export default function TeamMemberManager({
                     className="pl-9"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="max-h-[50vh] md:max-h-[600px] overflow-y-auto overscroll-contain space-y-2 -mx-2 px-2 scroll-smooth">
                   {filteredTeamMembers.length === 0 ? (
                     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
                       <UserPlus className="h-10 w-10 text-muted-foreground/50 mb-3" />
@@ -324,6 +332,7 @@ export default function TeamMemberManager({
                         key={member.login}
                         member={member}
                         source="team"
+                        onRemove={removeMemberFromTeam}
                       />
                     ))
                   )}
@@ -335,7 +344,7 @@ export default function TeamMemberManager({
           <DroppableZone id="available" isOver={dragOverTarget === "available"}>
             <Card
               className={[
-                "min-h-[400px] transition-colors",
+                "min-h-[300px] md:min-h-[400px] transition-colors",
                 dragOverTarget === "available" ? "border-destructive bg-destructive/5" : "",
               ]
                 .filter(Boolean)
@@ -358,7 +367,7 @@ export default function TeamMemberManager({
                     className="pl-9"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="max-h-[50vh] md:max-h-[600px] overflow-y-auto overscroll-contain space-y-2 -mx-2 px-2 scroll-smooth">
                   {filteredAvailableMembers.length === 0 ? (
                     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
                       <UserMinus className="h-10 w-10 text-muted-foreground/50 mb-3" />
@@ -372,6 +381,7 @@ export default function TeamMemberManager({
                         key={member.login}
                         member={member}
                         source="available"
+                        onAdd={addMemberToTeam}
                       />
                     ))
                   )}

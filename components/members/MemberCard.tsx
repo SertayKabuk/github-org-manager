@@ -1,9 +1,11 @@
 'use client';
 
+import { Plus, Minus } from "lucide-react";
 import type { GitHubMember } from "@/lib/types/github";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface MemberCardProps {
   member: GitHubMember;
@@ -11,6 +13,9 @@ interface MemberCardProps {
   selected?: boolean;
   action?: React.ReactNode;
   className?: string;
+  showMobileActions?: boolean;
+  onAdd?: (member: GitHubMember) => void;
+  onRemove?: (member: GitHubMember) => void;
 }
 
 export default function MemberCard({
@@ -19,7 +24,15 @@ export default function MemberCard({
   selected = false,
   action,
   className = "",
+  showMobileActions = false,
+  onAdd,
+  onRemove,
 }: MemberCardProps) {
+  const handleActionClick = (e: React.MouseEvent, actionFn: (member: GitHubMember) => void) => {
+    e.stopPropagation();
+    actionFn(member);
+  };
+
   return (
     <Card
       onClick={onClick ? () => onClick(member) : undefined}
@@ -48,6 +61,32 @@ export default function MemberCard({
             <Badge variant="secondary" className="capitalize text-xs h-5">
               {member.role}
             </Badge>
+          )}
+          {showMobileActions && (onAdd || onRemove) && (
+            <div className="flex gap-1 md:hidden">
+              {onAdd && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => handleActionClick(e, onAdd)}
+                  aria-label={`Add ${member.login} to team`}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
+              {onRemove && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={(e) => handleActionClick(e, onRemove)}
+                  aria-label={`Remove ${member.login} from team`}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           )}
           {action && <div>{action}</div>}
         </div>

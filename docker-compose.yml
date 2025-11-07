@@ -1,0 +1,23 @@
+services:
+  github-org-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: github-org-manager
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    # environment:
+    #   # Ensure these are passed from .env.local
+    #   - GITHUB_TOKEN=${GITHUB_TOKEN}
+    #   - GITHUB_ORG=${GITHUB_ORG}
+    #   - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-GitHub Organization Manager}
+    #   - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

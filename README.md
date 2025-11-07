@@ -1,36 +1,223 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GitHub Organization Manager
 
-## Getting Started
+A modern Next.js dashboard for managing GitHub organization teams and members with an intuitive drag-and-drop interface. Built with Next.js 16, React 19, TypeScript, and shadcn/ui.
 
-First, run the development server:
+![Next.js](https://img.shields.io/badge/Next.js-16.0-black)
+![React](https://img.shields.io/badge/React-19.2-blue)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- 🎯 **Visual Team Management**: Drag-and-drop interface for managing team members
+- 👥 **Member Overview**: View all organization members with their team affiliations
+- 🏢 **Team Operations**: Create, update, and delete teams with ease
+- 🎨 **Modern UI**: Built with shadcn/ui and Tailwind CSS v4
+- 🌓 **Dark Mode**: System-aware theme switching with next-themes
+- 🔒 **Type-Safe**: Full TypeScript support with GitHub API types
+- ⚡ **Optimized**: React 19 with Next.js 16 App Router for optimal performance
+
+## Prerequisites
+
+- **Node.js**: 20.x or later
+- **pnpm**: 9.x or later (required - this project uses pnpm workspaces)
+- **GitHub Token**: Classic Personal Access Token with `admin:org` scope
+- **GitHub Organization**: Admin access to a GitHub organization
+
+## Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/SertayKabuk/github-org-manager.git
+   cd github-org-manager
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
+
+3. **Configure environment variables**
+   
+   Create a `.env.local` file in the project root:
+   ```env
+   GITHUB_TOKEN=ghp_your_classic_personal_access_token
+   GITHUB_ORG=your-organization-name
+   NEXT_PUBLIC_APP_NAME=GitHub Org Manager  # Optional
+   ```
+
+   **Token Setup**:
+   - Go to [GitHub Settings → Tokens (classic)](https://github.com/settings/tokens)
+   - Generate new token with `admin:org` scope
+   - Copy the token to `GITHUB_TOKEN` in `.env.local`
+
+4. **Start the development server**
+   ```bash
+   pnpm dev
+   ```
+
+5. **Open the application**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## Usage
+
+### Managing Teams
+
+- **View Teams**: Navigate to `/teams` to see all organization teams
+- **Create Team**: Click "Create New Team" and fill in the team details
+- **View Team Details**: Click on any team card to see members and manage settings
+- **Delete Team**: Use the delete button in the team details page
+
+### Managing Members
+
+- **View Members**: Navigate to `/members` to see all organization members
+- **Add to Team**: Drag a member from the "Available Members" section and drop them onto a team
+- **Remove from Team**: Drag a member from a team and drop them back to "Available Members"
+- **Filter Members**: Use the role filter to view members by their organization role
+
+## Project Structure
+
+```
+github-org-manager/
+├── app/                        # Next.js App Router
+│   ├── api/                    # API routes (proxy to GitHub API)
+│   │   ├── members/           # Member endpoints
+│   │   ├── teams/             # Team endpoints
+│   │   └── orgs/              # Organization endpoints
+│   ├── teams/                 # Team management pages
+│   ├── members/               # Member listing page
+│   └── layout.tsx             # Root layout with theme provider
+├── components/
+│   ├── ui/                    # shadcn/ui primitives
+│   ├── teams/                 # Team-specific components
+│   ├── members/               # Member cards and draggables
+│   └── layout/                # Header, sidebar
+├── lib/
+│   ├── octokit.ts            # Octokit singleton client
+│   ├── types/                 # TypeScript type definitions
+│   └── utils.ts               # Utility functions
+├── docs/
+│   └── OCTOKIT_GUIDE.md      # Octokit SDK reference
+└── public/                    # Static assets
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Technology Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Core
+- **[Next.js 16](https://nextjs.org/)**: React framework with App Router
+- **[React 19](https://react.dev/)**: UI library with latest features
+- **[TypeScript 5](https://www.typescriptlang.org/)**: Type-safe development
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### UI & Styling
+- **[shadcn/ui](https://ui.shadcn.com/)**: Reusable component library (New York style)
+- **[Radix UI](https://www.radix-ui.com/)**: Unstyled, accessible UI primitives
+- **[Tailwind CSS v4](https://tailwindcss.com/)**: Utility-first CSS framework
+- **[Lucide Icons](https://lucide.dev/)**: Beautiful, consistent icon set
+- **[next-themes](https://github.com/pacocoursey/next-themes)**: Theme management
 
-## Learn More
+### GitHub Integration
+- **[Octokit.js v5](https://github.com/octokit/octokit.js)**: Official GitHub REST API client
 
-To learn more about Next.js, take a look at the following resources:
+### Drag & Drop
+- **[@dnd-kit](https://dndkit.com/)**: Modern drag-and-drop toolkit for React
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API Routes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+All API routes follow a consistent pattern with typed responses:
 
-## Deploy on Vercel
+- `GET /api/teams` - List all teams
+- `POST /api/teams` - Create a new team
+- `GET /api/teams/[teamSlug]` - Get team details
+- `PATCH /api/teams/[teamSlug]` - Update team
+- `DELETE /api/teams/[teamSlug]` - Delete team
+- `GET /api/teams/[teamSlug]/members` - List team members
+- `PUT /api/teams/[teamSlug]/members` - Add/remove team members
+- `GET /api/members` - List all organization members
+- `GET /api/orgs` - Get organization information
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Development
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Commands
+
+```bash
+pnpm dev          # Start development server (localhost:3000)
+pnpm build        # Build for production
+pnpm start        # Run production server
+pnpm lint         # Run ESLint
+```
+
+### Adding shadcn/ui Components
+
+```bash
+pnpm dlx shadcn@latest add <component-name>
+```
+
+Components are automatically installed to `components/ui/` with proper TypeScript types.
+
+### Code Conventions
+
+- **React Components**: PascalCase (e.g., `TeamCard.tsx`)
+- **API Routes**: lowercase (e.g., `route.ts`)
+- **Imports**: Use `@/*` alias for all internal imports
+- **Styling**: Tailwind utilities with `cn()` helper for conditional classes
+- **Client Components**: Mark with `'use client'` directive when using hooks or interactivity
+
+## Configuration Files
+
+- **`next.config.ts`**: Next.js configuration with image domain allowlist
+- **`tsconfig.json`**: TypeScript configuration with path aliases
+- **`tailwind.config.ts`**: Tailwind CSS v4 configuration
+- **`components.json`**: shadcn/ui configuration
+- **`eslint.config.mjs`**: ESLint configuration
+- **`pnpm-workspace.yaml`**: pnpm workspace configuration
+
+## Troubleshooting
+
+### Missing GITHUB_TOKEN Error
+Ensure you've created `.env.local` with a valid GitHub classic PAT that has `admin:org` scope.
+
+### Rate Limiting
+The GitHub API has rate limits. Octokit automatically retries on rate limit errors. Check the [GitHub API rate limits](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting).
+
+### TypeScript Errors in node_modules
+This is expected with Tailwind CSS v4 alpha. The `tsconfig.json` has `skipLibCheck: true` to handle this.
+
+### Image Loading Issues
+GitHub avatar images are allowlisted in `next.config.ts`. Add new domains there if needed.
+
+## Docker Support
+
+A `Dockerfile` and `docker-compose.yml` are included for containerized deployment:
+
+```bash
+docker-compose up --build
+```
+
+## Documentation
+
+- **[Octokit Guide](docs/OCTOKIT_GUIDE.md)**: Comprehensive reference for GitHub API integration
+- **[AI Coding Instructions](.github/copilot-instructions.md)**: AI agent development guidelines
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License.
+
+## Acknowledgments
+
+- Built with [Next.js](https://nextjs.org/)
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- GitHub API via [Octokit](https://github.com/octokit/octokit.js)
+- Drag-and-drop by [@dnd-kit](https://dndkit.com/)
+
+## Support
+
+For issues and questions, please [open an issue](https://github.com/SertayKabuk/github-org-manager/issues) on GitHub.

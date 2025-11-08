@@ -51,22 +51,45 @@ Copy the output and set it as `SESSION_SECRET` in your `.env.local`.
 
 ### 4. Production Setup
 
-For production deployments:
+For production deployments, you **MUST** configure the `APP_URL` environment variable to avoid redirect issues.
 
-1. Create a new OAuth App (or update the existing one) with production URLs:
-   - **Homepage URL**: `https://your-domain.com`
-   - **Authorization callback URL**: `https://your-domain.com/api/auth/github/callback`
+#### Step 1: Create Production OAuth App
 
-2. Update your production environment variables:
-   ```env
-   GITHUB_CLIENT_ID=prod_client_id
-   GITHUB_CLIENT_SECRET=prod_client_secret
-   SESSION_SECRET=prod_session_secret (different from dev!)
-   GITHUB_ORG=your-org-name
-   APP_URL=https://your-domain.com
-   ```
+Create a new OAuth App (or update the existing one) with production URLs:
+- **Homepage URL**: `https://your-domain.com`
+- **Authorization callback URL**: `https://your-domain.com/api/auth/github/callback`
 
-   **Note**: `APP_URL` is read at runtime, so you can use the same build for multiple environments by setting different values in each deployment.
+#### Step 2: Configure Environment Variables
+
+Set these environment variables in your deployment platform (Vercel, Railway, etc.):
+
+```env
+GITHUB_CLIENT_ID=prod_client_id
+GITHUB_CLIENT_SECRET=prod_client_secret
+SESSION_SECRET=prod_session_secret (different from dev!)
+GITHUB_ORG=your-org-name
+APP_URL=https://your-domain.com  # REQUIRED - must match your deployed URL
+```
+
+**⚠️ CRITICAL**: The `APP_URL` variable must be set to your actual deployment URL. Without it, OAuth redirects will fail and users will be redirected to `http://localhost:3000`.
+
+#### Platform-Specific Examples
+
+**Vercel:**
+```bash
+vercel env add APP_URL
+# Enter: https://your-app.vercel.app
+```
+
+**Railway:**
+```bash
+railway variables set APP_URL=https://your-app.railway.app
+```
+
+**Docker/Self-hosted:**
+Add to your `.env` file or docker-compose environment section.
+
+**Note**: `APP_URL` is read at runtime, so you can use the same build for multiple environments by setting different values in each deployment.
 
 ### 5. Required OAuth Scopes
 
@@ -120,6 +143,9 @@ Click the "Login with GitHub" button to authenticate.
 
 ### OAuth callback errors
 Verify the callback URL in your GitHub OAuth App matches: `http://localhost:3000/api/auth/github/callback`
+
+### Redirects to localhost:3000 or 0.0.0.0:3000 in production
+This means `APP_URL` is not set. Add it to your deployment environment variables with your actual production URL (e.g., `https://your-app.vercel.app`).
 
 ### Session not persisting
 Check that cookies are enabled and `SESSION_SECRET` is properly configured.

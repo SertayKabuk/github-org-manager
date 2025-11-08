@@ -232,6 +232,87 @@ A `Dockerfile` and `docker-compose.yml` are included for containerized deploymen
 docker-compose up --build
 ```
 
+## Deployment
+
+### Environment Variables for Production
+
+When deploying to production, you **MUST** set the following environment variables:
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `GITHUB_CLIENT_ID` | ✅ Yes | OAuth app client ID | `Iv1.abc123...` |
+| `GITHUB_CLIENT_SECRET` | ✅ Yes | OAuth app client secret | `abc123...` |
+| `SESSION_SECRET` | ✅ Yes | 32+ character random string | `abc123...` |
+| `GITHUB_ORG` | ✅ Yes | Organization login name | `your-org` |
+| `APP_URL` | ✅ **CRITICAL** | Your deployed application URL | `https://your-app.vercel.app` |
+| `NEXT_PUBLIC_APP_NAME` | ❌ No | Custom app name | `GitHub Org Manager` |
+
+**⚠️ CRITICAL**: If `APP_URL` is not set, OAuth redirects will fail and users will be redirected to `localhost:3000` instead of your production URL.
+
+### Platform-Specific Instructions
+
+#### Vercel
+
+1. **Configure environment variables**:
+   ```bash
+   vercel env add GITHUB_CLIENT_ID
+   vercel env add GITHUB_CLIENT_SECRET
+   vercel env add SESSION_SECRET
+   vercel env add GITHUB_ORG
+   vercel env add APP_URL
+   # Enter: https://your-app.vercel.app
+   ```
+
+2. **Update GitHub OAuth App**:
+   - Homepage URL: `https://your-app.vercel.app`
+   - Callback URL: `https://your-app.vercel.app/api/auth/github/callback`
+
+3. **Deploy**:
+   ```bash
+   vercel --prod
+   ```
+
+#### Railway
+
+1. **Set environment variables** in the Railway dashboard or via CLI:
+   ```bash
+   railway variables set APP_URL=https://your-app.railway.app
+   railway variables set GITHUB_CLIENT_ID=your_client_id
+   # ... set other variables
+   ```
+
+2. **Update GitHub OAuth App** with Railway URLs
+
+3. **Deploy** via Railway dashboard or CLI
+
+#### Docker / Self-Hosted
+
+1. **Create a `.env` file**:
+   ```env
+   GITHUB_CLIENT_ID=your_client_id
+   GITHUB_CLIENT_SECRET=your_client_secret
+   SESSION_SECRET=your_session_secret
+   GITHUB_ORG=your-org
+   APP_URL=https://your-domain.com
+   ```
+
+2. **Update GitHub OAuth App** with your domain URLs
+
+3. **Deploy with Docker**:
+   ```bash
+   docker-compose up -d
+   ```
+
+### Post-Deployment Checklist
+
+- ✅ All environment variables are set (especially `APP_URL`)
+- ✅ GitHub OAuth App callback URL matches `${APP_URL}/api/auth/github/callback`
+- ✅ SSL/TLS is configured (required for OAuth in production)
+- ✅ Test login flow works correctly
+- ✅ No redirect to localhost:3000
+
+See the [OAuth Setup Guide](docs/OAUTH_SETUP.md) for detailed configuration instructions.
+
 ## Documentation
 
 - **[OAuth Setup Guide](docs/OAUTH_SETUP.md)**: Complete guide for configuring GitHub OAuth authentication

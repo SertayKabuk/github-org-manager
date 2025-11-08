@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOAuthApp } from "@/lib/auth/oauth-app";
 import { saveSession } from "@/lib/auth/session";
+import { getAppUrl } from "@/lib/auth/helpers";
 import { Octokit } from "octokit";
 
 export async function GET(request: NextRequest) {
@@ -14,8 +15,9 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get("state"); // returnTo URL
     
     if (!code) {
+      const appUrl = getAppUrl();
       return NextResponse.redirect(
-        new URL("/?error=missing_code", request.url)
+        new URL("/?error=missing_code", appUrl)
       );
     }
     
@@ -43,12 +45,16 @@ export async function GET(request: NextRequest) {
     
     // Redirect to the original destination or home
     const returnTo = state || "/";
-    return NextResponse.redirect(new URL(returnTo, request.url));
+    const appUrl = getAppUrl();
+    const redirectUrl = new URL(returnTo, appUrl);
+        
+    return NextResponse.redirect(redirectUrl);
   } catch (error) {
-    console.error("OAuth callback error:", error);
+    console.error("[OAuth Callback] Error:", error);
     const message = error instanceof Error ? error.message : "Authentication failed";
+    const appUrl = getAppUrl();
     return NextResponse.redirect(
-      new URL(`/?error=${encodeURIComponent(message)}`, request.url)
+      new URL(`/?error=${encodeURIComponent(message)}`, appUrl)
     );
   }
 }

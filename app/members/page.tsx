@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from "react";
-import { Users, Filter } from "lucide-react";
+import { Users, Filter, LogIn } from "lucide-react";
 
 import MemberList from "@/components/members/MemberList";
 import {
@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import ErrorMessage from "@/components/ui/ErrorMessage";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 import type { ApiResponse, GitHubMember, GitHubTeam } from "@/lib/types/github";
 
@@ -26,6 +28,7 @@ const ROLE_OPTIONS = [
 ];
 
 export default function MembersPage() {
+  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [members, setMembers] = useState<GitHubMember[]>([]);
@@ -36,6 +39,11 @@ export default function MembersPage() {
 
   // Fetch teams for the filter dropdown
   useEffect(() => {
+    if (!isAuthenticated) {
+      setTeamsLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const fetchTeams = async () => {
@@ -64,9 +72,14 @@ export default function MembersPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const fetchMembers = async () => {
@@ -119,7 +132,38 @@ export default function MembersPage() {
     return () => {
       isMounted = false;
     };
-  }, [roleFilter, teamFilter]);
+  }, [roleFilter, teamFilter, isAuthenticated]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Users className="h-16 w-16 text-muted-foreground mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Authentication Required</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Please sign in with your GitHub account to view organization members.
+        </p>
+        <Button onClick={() => login()} size="lg">
+          <LogIn className="mr-2 h-5 w-5" />
+          Login with GitHub
+        </Button>
+      </div>
+    );
+  }
 
   const memberCount = useMemo(() => members.length, [members]);
 

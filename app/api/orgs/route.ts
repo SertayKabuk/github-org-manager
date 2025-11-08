@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { getOrgName, octokit } from "@/lib/octokit";
+import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { requireAuth } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubOrganization } from "@/lib/types/github";
 
 export async function GET() {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   try {
     const orgLogin = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
 
     const [{ data: org }, membersResponse] = await Promise.all([
       octokit.rest.orgs.get({ org: orgLogin }),

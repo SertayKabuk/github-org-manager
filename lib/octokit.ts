@@ -1,32 +1,22 @@
 /**
  * Lightweight Octokit singleton used across the app.
- * Throws early if the required environment variables are missing so we fail fast.
+ * Supports both OAuth tokens (from session) and static tokens (from env).
  */
 import { Octokit } from "octokit";
+import { getToken } from "./auth/session";
 
-let _octokit: Octokit | null = null;
-
-/** Shared Octokit client authenticated via personal access token. */
-export const octokit = new Proxy({} as Octokit, {
-  get(_target, prop) {
-    if (!_octokit) {
-      const token = process.env.GITHUB_TOKEN;
-      
-      if (!token) {
-        throw new Error(
-          "Missing GITHUB_TOKEN environment variable. Provide a classic PAT with admin:org scope in your .env.local file."
-        );
-      }
-      
-      _octokit = new Octokit({
-        auth: token,
-        userAgent: "github-org-manager/1.0.0",
-      });
-    }
-    
-    return _octokit[prop as keyof Octokit];
-  },
-});
+/**
+ * Creates an Octokit instance with OAuth token from session.
+ * Use this in API routes and server components where session is available.
+ */
+export async function getAuthenticatedOctokit(): Promise<Octokit> {
+  const token = await getToken();
+  
+  return new Octokit({
+    auth: token,
+    userAgent: "github-org-manager/1.0.0",
+  });
+}
 
 /** Returns the configured organization login or throws if missing. */
 export function getOrgName(): string {

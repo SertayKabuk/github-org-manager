@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Users, Layers, GitFork, Plus, ArrowRight, Github } from "lucide-react";
+import { Users, Layers, GitFork, Plus, ArrowRight, Github, LogIn } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import ErrorMessage from "@/components/ui/ErrorMessage";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 import type { GitHubOrganization, GitHubTeam } from "@/lib/types/github";
 
@@ -18,44 +20,91 @@ interface DashboardState {
   membersCount: number;
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}`);
+async function fetchJson<T>(url: string, retries = 2, delay = 100): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        // If it's a 401 and we have retries left, wait and retry
+        // This handles race conditions where session isn't immediately available
+        if (response.status === 401 && attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch ${url}`);
+      }
+      
+      return response.json() as Promise<T>;
+    } catch (error) {
+      // On last attempt, throw the error
+      if (attempt === retries) {
+        throw error;
+      }
+      // Otherwise wait and retry
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
-  return response.json() as Promise<T>;
+  
+  throw new Error(`Failed to fetch ${url} after ${retries + 1} attempts`);
 }
 
 export default function Home() {
+  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [state, setState] = useState<DashboardState>({
     org: null,
     teams: [],
     membersCount: 0,
   });
+  // Start with loading true if we're authenticated, false otherwise
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Don't fetch data if not authenticated
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
+    // Reset loading state when starting to fetch
+    setLoading(true);
     let isMounted = true;
 
     const loadData = async () => {
       try {
         const [orgResponse, teamsResponse, membersResponse] = await Promise.all([
-          fetchJson<{ data: GitHubOrganization & { member_count: number } }>("/api/orgs"),
-          fetchJson<{ data: GitHubTeam[] }>("/api/teams"),
-          fetchJson<{ data: Array<{ login: string }> }>("/api/members"),
+          fetchJson<{ data: GitHubOrganization & { member_count: number }; error?: string }>("/api/orgs"),
+          fetchJson<{ data: GitHubTeam[]; error?: string }>("/api/teams"),
+          fetchJson<{ data: Array<{ login: string }>; error?: string }>("/api/members"),
         ]);
 
         if (!isMounted) return;
 
+        // Check for errors in the response body
+        if (orgResponse.error) {
+          throw new Error(`Organization API error: ${orgResponse.error}`);
+        }
+        if (teamsResponse.error) {
+          throw new Error(`Teams API error: ${teamsResponse.error}`);
+        }
+        if (membersResponse.error) {
+          throw new Error(`Members API error: ${membersResponse.error}`);
+        }
+
         setState({
           org: orgResponse.data,
-          teams: teamsResponse.data,
-          membersCount: membersResponse.data.length,
+          teams: teamsResponse.data || [],
+          membersCount: membersResponse.data?.length || 0,
         });
         setError(null);
       } catch (err) {
-        console.error(err);
+        console.error("Error loading dashboard data:", err);
         if (!isMounted) return;
         setError(err instanceof Error ? err.message : "Failed to load dashboard data.");
       } finally {
@@ -70,7 +119,79 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isAuthenticated]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 mb-6">
+          <Github className="h-10 w-10 text-primary" />
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome to GitHub Org Manager</h1>
+        <p className="text-muted-foreground mb-8 max-w-md">
+          Sign in with your GitHub account to manage your organization teams and members.
+        </p>
+        <Button onClick={() => login()} size="lg">
+          <LogIn className="mr-2 h-5 w-5" />
+          Login with GitHub
+        </Button>
+        <div className="mt-12 grid gap-6 md:grid-cols-3 max-w-4xl">
+          <Card className="text-left">
+            <CardHeader>
+              <Layers className="h-8 w-8 text-primary mb-2" />
+              <CardTitle className="text-lg">Manage Teams</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Create, update, and organize teams within your GitHub organization.
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="text-left">
+            <CardHeader>
+              <Users className="h-8 w-8 text-primary mb-2" />
+              <CardTitle className="text-lg">Track Members</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                View all organization members and their team affiliations in one place.
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="text-left">
+            <CardHeader>
+              <GitFork className="h-8 w-8 text-primary mb-2" />
+              <CardTitle className="text-lg">Drag & Drop</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Easily add or remove members from teams with intuitive drag-and-drop.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

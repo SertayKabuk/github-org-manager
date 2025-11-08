@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getOrgName, octokit } from "@/lib/octokit";
+import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { requireAuth } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubMember } from "@/lib/types/github";
 
 interface RouteContext {
@@ -46,6 +47,10 @@ function mapMember(member: any): GitHubMember {
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const teamSlug = await resolveTeamSlug(request, context);
 
   if (!teamSlug) {
@@ -57,6 +62,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
     const members = await octokit.paginate(octokit.rest.teams.listMembersInOrg, {
       org,
       team_slug: teamSlug,
@@ -78,6 +84,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const teamSlug = await resolveTeamSlug(request, context);
 
   if (!teamSlug) {
@@ -117,6 +127,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
 
     await octokit.rest.teams.addOrUpdateMembershipForUserInOrg({
       org,
@@ -156,6 +167,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const teamSlug = await resolveTeamSlug(request, context);
 
   if (!teamSlug) {
@@ -185,6 +200,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
 
     await octokit.rest.teams.removeMembershipForUserInOrg({
       org,

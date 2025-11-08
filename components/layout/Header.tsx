@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Github } from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AuthButton } from "@/components/auth/AuthButton";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
@@ -42,7 +43,10 @@ export default function Header() {
             );
           })}
         </nav>
-        <ThemeToggle />
+        <div className="flex items-center gap-4">
+          <AuthButton />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

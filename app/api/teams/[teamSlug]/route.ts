@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getOrgName, octokit } from "@/lib/octokit";
+import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { requireAuth } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubTeam } from "@/lib/types/github";
 
 import { mapTeam } from "../transformers";
@@ -33,6 +34,10 @@ async function resolveTeamSlug(request: NextRequest, context: RouteContext): Pro
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const teamSlug = await resolveTeamSlug(request, context);
 
   if (!teamSlug) {
@@ -44,6 +49,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
     const response = await octokit.rest.teams.getByName({
       org,
       team_slug: teamSlug,
@@ -70,6 +76,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const teamSlug = await resolveTeamSlug(request, context);
 
   if (!teamSlug) {
@@ -99,6 +109,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
 
     const response = await octokit.rest.teams.updateInOrg({
       org,
@@ -122,6 +133,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const teamSlug = await resolveTeamSlug(request, context);
 
   if (!teamSlug) {
@@ -133,6 +148,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
     await octokit.rest.teams.deleteInOrg({
       org,
       team_slug: teamSlug,

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, LogIn, Layers } from "lucide-react";
 
 import TeamList from "@/components/teams/TeamList";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 import type { GitHubTeam } from "@/lib/types/github";
 
@@ -19,6 +20,7 @@ interface TeamsResponse {
 }
 
 export default function TeamsPage() {
+  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [teams, setTeams] = useState<GitHubTeam[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -26,6 +28,11 @@ export default function TeamsPage() {
   const router = useRouter();
 
   const loadTeams = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/teams");
@@ -41,11 +48,42 @@ export default function TeamsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     loadTeams();
   }, [loadTeams]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Layers className="h-16 w-16 text-muted-foreground mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Authentication Required</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Please sign in with your GitHub account to view and manage teams.
+        </p>
+        <Button onClick={() => login()} size="lg">
+          <LogIn className="mr-2 h-5 w-5" />
+          Login with GitHub
+        </Button>
+      </div>
+    );
+  }
 
   const filteredTeams = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();

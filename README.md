@@ -21,7 +21,7 @@ A modern Next.js dashboard for managing GitHub organization teams and members wi
 
 - **Node.js**: 20.x or later
 - **pnpm**: 9.x or later (required - this project uses pnpm workspaces)
-- **GitHub Token**: Classic Personal Access Token with `admin:org` scope
+- **GitHub OAuth App**: OAuth application registered with GitHub
 - **GitHub Organization**: Admin access to a GitHub organization
 
 ## Installation
@@ -41,15 +41,28 @@ A modern Next.js dashboard for managing GitHub organization teams and members wi
    
    Create a `.env.local` file in the project root:
    ```env
-   GITHUB_TOKEN=ghp_your_classic_personal_access_token
+   # GitHub OAuth App Credentials
+   GITHUB_CLIENT_ID=your_client_id_here
+   GITHUB_CLIENT_SECRET=your_client_secret_here
+   
+   # Session Secret (32+ character random string)
+   SESSION_SECRET=your_long_random_secret_here_at_least_32_characters
+   
+   # Organization to manage
    GITHUB_ORG=your-organization-name
-   NEXT_PUBLIC_APP_NAME=GitHub Org Manager  # Optional
+   
+   # Optional: Custom app name
+   NEXT_PUBLIC_APP_NAME=GitHub Org Manager
+   
+   # Base URL (runtime-configurable, defaults to localhost:3000)
+   APP_URL=http://localhost:3000
    ```
 
-   **Token Setup**:
-   - Go to [GitHub Settings → Tokens (classic)](https://github.com/settings/tokens)
-   - Generate new token with `admin:org` scope
-   - Copy the token to `GITHUB_TOKEN` in `.env.local`
+   **OAuth Setup**:
+   See the detailed [OAuth Setup Guide](docs/OAUTH_SETUP.md) for complete instructions on:
+   - Creating a GitHub OAuth App
+   - Generating a session secret
+   - Configuring production deployments
 
 4. **Start the development server**
    ```bash
@@ -58,7 +71,19 @@ A modern Next.js dashboard for managing GitHub organization teams and members wi
 
 5. **Open the application**
    
-   Navigate to [http://localhost:3000](http://localhost:3000)
+   Navigate to [http://localhost:3000](http://localhost:3000) and click "Login with GitHub" to authenticate.
+
+## Authentication
+
+This application uses **GitHub OAuth** for secure authentication. Users must login with their GitHub account to access organization management features.
+
+**Key Features**:
+- Secure session-based authentication with encrypted cookies
+- No static tokens required
+- Per-user authentication with proper GitHub permissions
+- Automatic session management and token refresh
+
+After logging in, users can manage teams and members based on their GitHub organization permissions.
 
 ## Usage
 
@@ -174,8 +199,21 @@ Components are automatically installed to `components/ui/` with proper TypeScrip
 
 ## Troubleshooting
 
-### Missing GITHUB_TOKEN Error
-Ensure you've created `.env.local` with a valid GitHub classic PAT that has `admin:org` scope.
+### Authentication Issues
+If you can't login or see "Not authenticated" errors, verify:
+- GitHub OAuth App is properly configured
+- `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are correct
+- Callback URL matches: `http://localhost:3000/api/auth/github/callback`
+- Cookies are enabled in your browser
+
+See the [OAuth Setup Guide](docs/OAUTH_SETUP.md) for detailed troubleshooting.
+
+### Missing SESSION_SECRET Error
+Generate a secure 32+ character random string:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+Add the output to `.env.local` as `SESSION_SECRET`.
 
 ### Rate Limiting
 The GitHub API has rate limits. Octokit automatically retries on rate limit errors. Check the [GitHub API rate limits](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting).
@@ -196,6 +234,7 @@ docker-compose up --build
 
 ## Documentation
 
+- **[OAuth Setup Guide](docs/OAUTH_SETUP.md)**: Complete guide for configuring GitHub OAuth authentication
 - **[Octokit Guide](docs/OCTOKIT_GUIDE.md)**: Comprehensive reference for GitHub API integration
 - **[AI Coding Instructions](.github/copilot-instructions.md)**: AI agent development guidelines
 

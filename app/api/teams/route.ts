@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getOrgName, octokit } from "@/lib/octokit";
+import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { requireAuth } from "@/lib/auth/helpers";
 import type { ApiResponse, CreateTeamInput, GitHubTeam } from "@/lib/types/github";
 
 import { mapTeam } from "./transformers";
@@ -8,8 +9,13 @@ import { mapTeam } from "./transformers";
 const PRIVACY_OPTIONS: ReadonlySet<string> = new Set(["closed", "secret"]);
 
 export async function GET() {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
 
     const teams = await octokit.paginate(octokit.rest.teams.list, {
       org,
@@ -48,6 +54,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   let body: CreateTeamInput;
 
   try {
@@ -75,6 +85,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
 
     const response = await octokit.rest.teams.create({
       org,

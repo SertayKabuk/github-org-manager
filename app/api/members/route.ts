@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getOrgName, octokit } from "@/lib/octokit";
+import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { requireAuth } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubMember } from "@/lib/types/github";
 
 const ROLE_FILTERS = new Set(["all", "admin", "member"] as const);
@@ -8,6 +9,10 @@ const ROLE_FILTERS = new Set(["all", "admin", "member"] as const);
 type RoleFilter = "all" | "admin" | "member";
 
 export async function GET(request: NextRequest) {
+  // Check authentication
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const roleParam = (request.nextUrl.searchParams.get("role") || "all") as RoleFilter;
   const teamSlug = request.nextUrl.searchParams.get("team");
 
@@ -20,6 +25,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const org = getOrgName();
+    const octokit = await getAuthenticatedOctokit();
     let data: GitHubMember[] = [];
 
     // Fetch all teams once and build a map of team slug to team members

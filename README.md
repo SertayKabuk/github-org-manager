@@ -12,6 +12,8 @@ A modern Next.js dashboard for managing GitHub organization teams and members wi
 - 🎯 **Visual Team Management**: Drag-and-drop interface for managing team members
 - 👥 **Member Overview**: View all organization members with their team affiliations
 - 🏢 **Team Operations**: Create, update, and delete teams with ease
+- 💰 **Cost Center Management**: Manage GitHub Enterprise billing cost centers with searchable resource assignment
+- 🔍 **Searchable Resources**: Find and assign users, repositories, and organizations with autocomplete
 - 🎨 **Modern UI**: Built with shadcn/ui and Tailwind CSS v4
 - 🌓 **Dark Mode**: System-aware theme switching with next-themes
 - 🔒 **Type-Safe**: Full TypeScript support with GitHub API types
@@ -50,6 +52,9 @@ A modern Next.js dashboard for managing GitHub organization teams and members wi
    
    # Organization to manage
    GITHUB_ORG=your-organization-name
+   
+   # Enterprise slug (required for cost center management)
+   GITHUB_ENTERPRISE=your-enterprise-slug
    
    # Optional: Custom app name
    NEXT_PUBLIC_APP_NAME=GitHub Org Manager
@@ -100,6 +105,18 @@ After logging in, users can manage teams and members based on their GitHub organ
 - **Add to Team**: Drag a member from the "Available Members" section and drop them onto a team
 - **Remove from Team**: Drag a member from a team and drop them back to "Available Members"
 - **Filter Members**: Use the role filter to view members by their organization role
+
+### Managing Cost Centers
+
+- **View Cost Centers**: Navigate to `/cost-centers` to see all enterprise cost centers
+- **Filter by State**: Use the state filter dropdown to view active or deleted cost centers
+- **Create Cost Center**: Click "New Cost Center" to create a billing cost center
+- **View Cost Center Details**: Click on any cost center card to manage resources
+- **Update Cost Center**: Edit the cost center name and save changes
+- **Delete Cost Center**: Click "Delete cost center" to archive it (marks as deleted)
+- **Add Resources**: Use searchable dropdowns to find and add users or repositories
+- **Remove Resources**: Click the trash icon next to any resource to remove it
+- **Search Resources**: Start typing in the combobox to filter available users and repositories
 
 ## Project Structure
 
@@ -160,6 +177,15 @@ All API routes follow a consistent pattern with typed responses:
 - `PUT /api/teams/[teamSlug]/members` - Add/remove team members
 - `GET /api/members` - List all organization members
 - `GET /api/orgs` - Get organization information
+- `GET /api/repositories` - List all organization repositories
+- `GET /api/organizations` - List all organizations for authenticated user
+- `GET /api/cost-centers` - List all enterprise cost centers (supports `?state=active|deleted`)
+- `POST /api/cost-centers` - Create a new cost center
+- `GET /api/cost-centers/[costCenterId]` - Get cost center details
+- `PATCH /api/cost-centers/[costCenterId]` - Update cost center name
+- `DELETE /api/cost-centers/[costCenterId]` - Delete (archive) a cost center
+- `POST /api/cost-centers/[costCenterId]/resource` - Add resources to cost center
+- `DELETE /api/cost-centers/[costCenterId]/resource` - Remove resources from cost center
 
 ## Development
 
@@ -244,6 +270,7 @@ When deploying to production, you **MUST** set the following environment variabl
 | `GITHUB_CLIENT_SECRET` | ✅ Yes | OAuth app client secret | `abc123...` |
 | `SESSION_SECRET` | ✅ Yes | 32+ character random string | `abc123...` |
 | `GITHUB_ORG` | ✅ Yes | Organization login name | `your-org` |
+| `GITHUB_ENTERPRISE` | ⚠️ Optional | Enterprise slug (for cost centers) | `your-enterprise` |
 | `APP_URL` | ✅ **CRITICAL** | Your deployed application URL | `https://your-app.vercel.app` |
 | `NEXT_PUBLIC_APP_NAME` | ❌ No | Custom app name | `GitHub Org Manager` |
 

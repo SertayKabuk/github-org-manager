@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     // Generate the GitHub authorization URL
     const { url } = oauthApp.getWebFlowAuthorizationUrl({
       redirectUrl: callbackUrl,
-      scopes: ["read:org", "admin:org", "user"],
+      scopes: ["admin:org", "user", "manage_billing:enterprise", "read:enterprise", "manage_billing:copilot"],
       state: returnTo, // Pass returnTo URL in state parameter
     });
     

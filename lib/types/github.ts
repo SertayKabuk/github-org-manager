@@ -34,6 +34,18 @@ export interface GitHubOrganization {
   members?: number;
 }
 
+export interface GitHubRepository {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  owner: {
+    login: string;
+  };
+  html_url: string;
+  description: string | null;
+}
+
 export interface TeamMembership {
   role: "member" | "maintainer";
 }
@@ -48,4 +60,47 @@ export interface CreateTeamInput {
 export interface ApiResponse<T> {
   data: T;
   error?: string;
+}
+
+export type CostCenterState = "active" | "deleted";
+
+export type CostCenterResourceType = "User" | "Repo" | "Organization";
+
+export interface CostCenterResource {
+  type: CostCenterResourceType;
+  name: string;
+}
+
+export interface CostCenter {
+  id: string;
+  name: string;
+  state: CostCenterState;
+  azure_subscription?: string | null;
+  resources: CostCenterResource[];
+}
+
+export interface CreateCostCenterInput {
+  name: string;
+}
+
+export interface UpdateCostCenterInput {
+  name: string;
+}
+
+export interface AddResourceToCostCenterInput {
+  users?: string[];
+  organizations?: string[];
+  repositories?: string[];
+}
+
+export interface RemoveResourceFromCostCenterInput {
+  users?: string[];
+  organizations?: string[];
+  repositories?: string[];
+}
+
+export interface ResourceReassignment {
+  resource_type: string;
+  name: string;
+  previous_cost_center: string;
 }

@@ -30,3 +30,16 @@ export function getOrgName(): string {
 
   return org;
 }
+
+/** Returns the configured enterprise slug or throws if missing. */
+export function getEnterpriseName(): string {
+  const enterprise = process.env.GITHUB_ENTERPRISE;
+
+  if (!enterprise) {
+    throw new Error(
+      "Missing GITHUB_ENTERPRISE environment variable. Define the enterprise slug in your .env.local file."
+    );
+  }
+
+  return enterprise;
+}

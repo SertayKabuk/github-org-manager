@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/teams", label: "Teams" },
   { href: "/members", label: "Members" },
+  { href: "/cost-centers", label: "Cost Centers" },
 ];
 
 export default function Header() {

@@ -41,9 +41,9 @@ components/
 ### Environment Variables (Required)
 Create `.env.local` in project root:
 ```env
-GITHUB_TOKEN=ghp_...           # Classic PAT with admin:org scope
+GITHUB_ENTERPRISE=your-enterprise-name       # Enterprise slug (not display name)
 GITHUB_ORG=your-org-name       # Organization login (not display name)
-NEXT_PUBLIC_APP_NAME=...       # Optional: Custom app name in header
+APP_NAME=...       # Optional: Custom app name in header
 ```
 
 **The app fails fast if these are missing** - see `lib/octokit.ts` for error handling.

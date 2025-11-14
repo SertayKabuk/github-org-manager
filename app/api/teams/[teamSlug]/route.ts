@@ -6,8 +6,10 @@ import type { ApiResponse, GitHubTeam } from "@/lib/types/github";
 
 import { mapTeam } from "../transformers";
 
+type RouteParams = Promise<{ teamSlug?: string }>;
+
 interface RouteContext {
-  params?: Promise<{ teamSlug?: string }> | { teamSlug?: string };
+  params?: RouteParams;
 }
 
 interface OctokitRequestError {
@@ -29,7 +31,7 @@ async function resolveTeamSlug(request: NextRequest, context: RouteContext): Pro
 
   if (rawParams) {
     try {
-      const params = await Promise.resolve(rawParams);
+      const params = await rawParams;
       if (params?.teamSlug) {
         return params.teamSlug;
       }

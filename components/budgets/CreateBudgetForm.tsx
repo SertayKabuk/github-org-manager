@@ -32,6 +32,30 @@ const typeOptions: { label: string; value: BudgetType }[] = [
   { label: "SKU Pricing", value: "SkuPricing" },
 ];
 
+const PRODUCT_PRICING_SKUS = [
+  { value: "actions", label: "GitHub Actions" },
+  { value: "packages", label: "GitHub Packages" },
+  { value: "codespaces", label: "GitHub Codespaces" },
+  { value: "copilot", label: "GitHub Copilot" },
+  { value: "ghas", label: "GitHub Advanced Security" },
+  { value: "ghec", label: "GitHub Enterprise Cloud" },
+] as const;
+
+const SKU_PRICING_SKUS = [
+  { value: "copilot_agent_premium_request", label: "Copilot Agent Premium Request" },
+  { value: "copilot_enterprise", label: "Copilot Enterprise" },
+  { value: "copilot_for_business", label: "Copilot for Business" },
+  { value: "copilot_premium_request", label: "Copilot Premium Request" },
+  { value: "copilot_standalone", label: "Copilot Standalone" },
+  { value: "models_inference", label: "Models Inference" },
+  { value: "spark_premium_request", label: "Spark Premium Request" },
+] as const;
+
+const SKU_OPTIONS: Record<BudgetType, readonly { value: string; label: string }[]> = {
+  ProductPricing: PRODUCT_PRICING_SKUS,
+  SkuPricing: SKU_PRICING_SKUS,
+};
+
 interface CreateBudgetFormProps {
   onSubmit: (data: CreateBudgetInput) => Promise<void> | void;
   onCancel: () => void;
@@ -55,11 +79,22 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit = useMemo(() => form.budget_product_sku.trim().length > 0 && form.budget_amount >= 0, [form]);
+  const currentSkuOptions = SKU_OPTIONS[form.budget_type];
 
   const updateForm = <K extends keyof CreateBudgetInput>(key: K, value: CreateBudgetInput[K]) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
+    }));
+  };
+
+  const handleBudgetTypeChange = (value: BudgetType) => {
+    const nextOptions = SKU_OPTIONS[value];
+    setForm((prev) => ({
+      ...prev,
+      budget_type: value,
+      budget_product_sku:
+        nextOptions.find((option) => option.value === prev.budget_product_sku)?.value ?? nextOptions[0]?.value ?? "",
     }));
   };
 
@@ -158,7 +193,7 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Budget type</label>
-          <Select value={form.budget_type} onValueChange={(value) => updateForm("budget_type", value as BudgetType)}>
+          <Select value={form.budget_type} onValueChange={(value) => handleBudgetTypeChange(value as BudgetType)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -183,16 +218,21 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
           />
         </div>
         <div className="space-y-2 md:col-span-2">
-          <label htmlFor="budget-sku" className="text-sm font-medium">
-            Product SKU
+          <label className="text-sm font-medium">
+            {form.budget_type === "ProductPricing" ? "Product" : "SKU"}
           </label>
-          <Input
-            id="budget-sku"
-            placeholder="e.g. actions"
-            value={form.budget_product_sku}
-            onChange={(event) => updateForm("budget_product_sku", event.target.value)}
-            required
-          />
+          <Select value={form.budget_product_sku} onValueChange={(value) => updateForm("budget_product_sku", value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select an option" />
+            </SelectTrigger>
+            <SelectContent>
+              {currentSkuOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

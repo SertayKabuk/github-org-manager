@@ -1,12 +1,15 @@
 'use client';
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Budget } from "@/lib/types/github";
-import { AlertOctagon, BellRing, Coins, ShieldCheck } from "lucide-react";
+import { AlertOctagon, BellRing, Coins, ShieldCheck, Trash2 } from "lucide-react";
 
 interface BudgetCardProps {
   budget: Budget;
+  onDelete?: (budget: Budget) => void;
+  deleting?: boolean;
 }
 
 const scopeLabels: Record<Budget["budget_scope"], string> = {
@@ -16,7 +19,7 @@ const scopeLabels: Record<Budget["budget_scope"], string> = {
   cost_center: "Cost Center",
 };
 
-export default function BudgetCard({ budget }: BudgetCardProps) {
+export default function BudgetCard({ budget, onDelete, deleting = false }: BudgetCardProps) {
   const skuLabel = budget.budget_product_skus?.length
     ? budget.budget_product_skus.join(", ")
     : budget.budget_product_sku ?? "–";
@@ -39,9 +42,23 @@ export default function BudgetCard({ budget }: BudgetCardProps) {
               <CardDescription>Budget limit</CardDescription>
             </div>
           </div>
-          <Badge variant="secondary" className="capitalize">
-            {scopeLabels[budget.budget_scope]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="capitalize">
+              {scopeLabels[budget.budget_scope]}
+            </Badge>
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => onDelete(budget)}
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Delete budget</span>
+              </Button>
+            )}
+          </div>
         </div>
         <div className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground">SKU:</span> {skuLabel}

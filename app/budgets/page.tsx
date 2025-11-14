@@ -8,12 +8,14 @@ import CreateBudgetForm from "@/components/budgets/CreateBudgetForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ErrorMessage from "@/components/ui/ErrorMessage";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ApiResponse, Budget, BudgetCreateResult, CreateBudgetInput, BudgetScope } from "@/lib/types/github";
+import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, CreateBudgetInput, BudgetScope } from "@/lib/types/github";
 
 type BudgetsResponse = ApiResponse<Budget[]>;
 type BudgetCreationResponse = ApiResponse<BudgetCreateResult>;
+type BudgetDeleteResponse = ApiResponse<BudgetDeleteResult>;
 
 type ScopeFilter = "all" | BudgetScope;
 
@@ -24,6 +26,9 @@ export default function BudgetsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
+  const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
 
   const loadBudgets = async () => {
     setLoading(true);
@@ -45,6 +50,44 @@ export default function BudgetsPage() {
       setError(err instanceof Error ? err.message : "Failed to load budgets.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteRequest = (budget: Budget) => {
+    setSelectedBudget(budget);
+    setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    if (deletingBudgetId) return;
+    setDeleteDialogOpen(false);
+    setSelectedBudget(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedBudget) return;
+    setDeletingBudgetId(selectedBudget.id);
+
+    try {
+      const response = await fetch(`/api/budgets/${selectedBudget.id}`, {
+        method: "DELETE",
+      });
+
+      const json = (await response.json().catch(() => null)) as BudgetDeleteResponse | null;
+
+      if (!response.ok) {
+        throw new Error(json?.data.message ?? `Failed to delete budget (${response.status})`);
+      }
+
+      setBudgets((prev) => prev.filter((budget) => budget.id !== selectedBudget.id));
+      setError(null);
+      setDeleteDialogOpen(false);
+      setSelectedBudget(null);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Failed to delete budget.");
+    } finally {
+      setDeletingBudgetId(null);
     }
   };
 
@@ -194,7 +237,30 @@ export default function BudgetsPage() {
         </Card>
       )}
 
-      <BudgetList budgets={filteredBudgets} />
+      <BudgetList budgets={filteredBudgets} onDelete={handleDeleteRequest} deletingBudgetId={deletingBudgetId} />
+
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => (open ? setDeleteDialogOpen(true) : closeDeleteDialog())}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete budget</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. The budget for {selectedBudget?.budget_product_sku ?? "this selection"} will be permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1 text-sm">
+            <p><span className="font-medium">Scope:</span> {selectedBudget?.budget_scope ?? "—"}</p>
+            <p><span className="font-medium">Limit:</span> {selectedBudget ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(selectedBudget.budget_amount) : "—"}</p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={closeDeleteDialog} disabled={Boolean(deletingBudgetId)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleConfirmDelete} disabled={Boolean(deletingBudgetId)}>
+              {deletingBudgetId ? "Deleting..." : "Delete budget"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

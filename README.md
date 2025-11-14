@@ -345,6 +345,7 @@ See the [OAuth Setup Guide](docs/OAUTH_SETUP.md) for detailed configuration inst
 - **[OAuth Setup Guide](docs/OAUTH_SETUP.md)**: Complete guide for configuring GitHub OAuth authentication
 - **[Octokit Guide](docs/OCTOKIT_GUIDE.md)**: Comprehensive reference for GitHub API integration
 - **[AI Coding Instructions](.github/copilot-instructions.md)**: AI agent development guidelines
+- **[Github Product and SKU names](https://docs.github.com/en/enterprise-cloud@latest/billing/reference/product-and-sku-names)**: Product and SKU identifiers used in the billing platform and REST API
 
 ## Contributing
 

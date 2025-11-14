@@ -140,3 +140,8 @@ export interface BudgetCreateResult {
   message: string;
   budget: Budget | null;
 }
+
+export interface BudgetDeleteResult {
+  message: string;
+  id: string;
+}

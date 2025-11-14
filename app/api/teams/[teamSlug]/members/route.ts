@@ -4,8 +4,10 @@ import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
 import { requireAuth } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubMember } from "@/lib/types/github";
 
+type RouteParams = Promise<{ teamSlug?: string }>;
+
 interface RouteContext {
-  params?: Promise<{ teamSlug?: string }> | { teamSlug?: string };
+  params?: RouteParams;
 }
 
 async function resolveTeamSlug(request: NextRequest, context: RouteContext): Promise<string | null> {
@@ -13,7 +15,7 @@ async function resolveTeamSlug(request: NextRequest, context: RouteContext): Pro
 
   if (rawParams) {
     try {
-      const params = await Promise.resolve(rawParams);
+      const params = await rawParams;
       if (params?.teamSlug) {
         return params.teamSlug;
       }

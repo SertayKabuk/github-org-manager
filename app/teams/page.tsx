@@ -54,6 +54,18 @@ export default function TeamsPage() {
     loadTeams();
   }, [loadTeams]);
 
+  const filteredTeams = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) {
+      return teams;
+    }
+    return teams.filter((team) =>
+      [team.name, team.slug, team.description ?? ""].some((value) =>
+        value.toLowerCase().includes(term)
+      )
+    );
+  }, [teams, searchQuery]);
+
   // Show loading while checking authentication
   if (authLoading) {
     return (
@@ -84,18 +96,6 @@ export default function TeamsPage() {
       </div>
     );
   }
-
-  const filteredTeams = useMemo(() => {
-    const term = searchQuery.trim().toLowerCase();
-    if (!term) {
-      return teams;
-    }
-    return teams.filter((team) =>
-      [team.name, team.slug, team.description ?? ""].some((value) =>
-        value.toLowerCase().includes(term)
-      )
-    );
-  }, [teams, searchQuery]);
 
   const handleDeleteTeam = async (team: GitHubTeam) => {
     const confirmed = window.confirm(`Delete team "${team.name}"? This action cannot be undone.`);

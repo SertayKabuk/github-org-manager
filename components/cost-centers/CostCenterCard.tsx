@@ -1,11 +1,10 @@
 'use client';
 
-import type { MouseEvent } from "react";
 import { Building2, Users, Lock, Package } from "lucide-react";
 
 import type { CostCenter } from "@/lib/types/github";
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 interface CostCenterCardProps {

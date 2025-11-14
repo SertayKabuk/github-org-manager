@@ -11,14 +11,12 @@ import MemberCard from "@/components/members/MemberCard";
 
 interface MemberListProps {
   members: GitHubMember[];
-  loading?: boolean;
   error?: string;
   onMemberClick?: (member: GitHubMember) => void;
 }
 
 export default function MemberList({
   members,
-  loading = false,
   error,
   onMemberClick,
 }: MemberListProps) {

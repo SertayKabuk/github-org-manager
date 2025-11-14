@@ -10,6 +10,20 @@ interface RouteContext {
   params?: Promise<{ teamSlug?: string }> | { teamSlug?: string };
 }
 
+interface OctokitRequestError {
+  status: number;
+  message?: string;
+}
+
+function isOctokitRequestError(error: unknown): error is OctokitRequestError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof (error as { status?: unknown }).status === "number"
+  );
+}
+
 async function resolveTeamSlug(request: NextRequest, context: RouteContext): Promise<string | null> {
   const rawParams = context?.params;
 
@@ -59,7 +73,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json<ApiResponse<GitHubTeam>>({ data }, { status: 200 });
   } catch (error) {
-    if (error && typeof error === "object" && "status" in error && (error as any).status === 404) {
+    if (isOctokitRequestError(error) && error.status === 404) {
       return NextResponse.json<ApiResponse<GitHubTeam>>(
         { data: {} as GitHubTeam, error: "Team not found." },
         { status: 404 }

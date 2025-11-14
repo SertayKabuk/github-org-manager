@@ -1,7 +1,19 @@
 import type { GitHubTeam } from "@/lib/types/github";
 
+type OctokitTeamPayload = {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  privacy?: GitHubTeam["privacy"] | null;
+  members_count?: number | null;
+  repos_count?: number | null;
+  html_url: string;
+  avatar_url?: string | null;
+};
+
 /** Normalizes the GitHub team payload into our internal shape. */
-export function mapTeam(team: any): GitHubTeam {
+export function mapTeam(team: OctokitTeamPayload): GitHubTeam {
   return {
     id: team.id,
     name: team.name,

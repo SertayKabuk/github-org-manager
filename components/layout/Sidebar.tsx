@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, Users, Layers, ChevronDown, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, Layers, ChevronDown, Building2, Wallet } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/teams", label: "Teams", icon: Layers },
   { href: "/members", label: "Members", icon: Users },
   { href: "/cost-centers", label: "Cost Centers", icon: Building2 },
+  { href: "/budgets", label: "Budgets", icon: Wallet },
 ];
 
 export default function Sidebar() {

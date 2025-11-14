@@ -34,21 +34,17 @@ export default function MembersPage() {
   const [members, setMembers] = useState<GitHubMember[]>([]);
   const [teams, setTeams] = useState<GitHubTeam[]>([]);
   const [loading, setLoading] = useState(true);
-  const [teamsLoading, setTeamsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch teams for the filter dropdown
   useEffect(() => {
     if (!isAuthenticated) {
-      setTeamsLoading(false);
       return;
     }
 
     let isMounted = true;
 
     const fetchTeams = async () => {
-      setTeamsLoading(true);
-
       try {
         const response = await fetch("/api/teams");
         if (!response.ok) {
@@ -60,10 +56,6 @@ export default function MembersPage() {
       } catch (err) {
         console.error("Error fetching teams:", err);
         // Don't set error here, teams filter is optional
-      } finally {
-        if (isMounted) {
-          setTeamsLoading(false);
-        }
       }
     };
 
@@ -134,6 +126,20 @@ export default function MembersPage() {
     };
   }, [roleFilter, teamFilter, isAuthenticated]);
 
+  const memberCount = useMemo(() => members.length, [members]);
+
+  const filterLabel = useMemo(() => {
+    if (teamFilter === "none") {
+      return "without team";
+    }
+    if (teamFilter !== "all") {
+      const selectedTeam = teams.find((t) => t.slug === teamFilter);
+      return selectedTeam ? `${selectedTeam.name} team` : "filtered";
+    }
+    if (roleFilter === "all") return "total";
+    return roleFilter;
+  }, [roleFilter, teamFilter, teams]);
+
   // Show loading while checking authentication
   if (authLoading) {
     return (
@@ -164,20 +170,6 @@ export default function MembersPage() {
       </div>
     );
   }
-
-  const memberCount = useMemo(() => members.length, [members]);
-
-  const filterLabel = useMemo(() => {
-    if (teamFilter === "none") {
-      return "without team";
-    }
-    if (teamFilter !== "all") {
-      const selectedTeam = teams.find((t) => t.slug === teamFilter);
-      return selectedTeam ? `${selectedTeam.name} team` : "filtered";
-    }
-    if (roleFilter === "all") return "total";
-    return roleFilter;
-  }, [roleFilter, teamFilter, teams]);
 
   return (
     <div className="space-y-6">

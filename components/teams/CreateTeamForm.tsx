@@ -86,8 +86,11 @@ export default function CreateTeamForm({ onSubmit, onCancel, loading = false }: 
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="closed">Closed (visible to org)</SelectItem>
-            <SelectItem value="secret">Secret (invite only)</SelectItem>
+            {PRIVACY_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

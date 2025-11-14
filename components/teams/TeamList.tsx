@@ -8,7 +8,6 @@ import TeamCard from "@/components/teams/TeamCard";
 
 interface TeamListProps {
   teams: GitHubTeam[];
-  loading?: boolean;
   error?: string;
   onTeamClick?: (team: GitHubTeam) => void;
   onDeleteTeam?: (team: GitHubTeam) => void;
@@ -16,7 +15,6 @@ interface TeamListProps {
 
 export default function TeamList({
   teams,
-  loading = false,
   error,
   onTeamClick,
   onDeleteTeam,

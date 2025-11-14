@@ -21,8 +21,8 @@ import { Button } from "@/components/ui/button";
 
 import type { ApiResponse, GitHubMember, GitHubTeam, TeamPrivacy } from "@/lib/types/github";
 
-interface TeamResponse extends ApiResponse<GitHubTeam> {}
-interface MembersResponse extends ApiResponse<GitHubMember[]> {}
+type TeamResponse = ApiResponse<GitHubTeam>;
+type MembersResponse = ApiResponse<GitHubMember[]>;
 
 export default function TeamDetailsPage() {
   const params = useParams<{ teamSlug: string }>();

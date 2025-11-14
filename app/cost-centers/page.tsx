@@ -19,8 +19,8 @@ import {
 
 import type { ApiResponse, CostCenter, CreateCostCenterInput, CostCenterState } from "@/lib/types/github";
 
-interface CostCentersResponse extends ApiResponse<CostCenter[]> {}
-interface CostCenterResponse extends ApiResponse<CostCenter> {}
+type CostCentersResponse = ApiResponse<CostCenter[]>;
+type CostCenterResponse = ApiResponse<CostCenter>;
 
 type StateFilter = "all" | CostCenterState;
 

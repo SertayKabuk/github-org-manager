@@ -104,3 +104,39 @@ export interface ResourceReassignment {
   name: string;
   previous_cost_center: string;
 }
+
+export type BudgetScope = "enterprise" | "organization" | "repository" | "cost_center";
+
+export type BudgetType = "ProductPricing" | "SkuPricing";
+
+export interface BudgetAlerting {
+  will_alert: boolean;
+  alert_recipients: string[];
+}
+
+export interface Budget {
+  id: string;
+  budget_scope: BudgetScope;
+  budget_entity_name?: string;
+  budget_amount: number;
+  prevent_further_usage: boolean;
+  budget_type: BudgetType;
+  budget_product_skus?: string[];
+  budget_product_sku?: string;
+  budget_alerting: BudgetAlerting;
+}
+
+export interface CreateBudgetInput {
+  budget_amount: number;
+  prevent_further_usage: boolean;
+  budget_scope: BudgetScope;
+  budget_entity_name?: string;
+  budget_type: BudgetType;
+  budget_product_sku: string;
+  budget_alerting: BudgetAlerting;
+}
+
+export interface BudgetCreateResult {
+  message: string;
+  budget: Budget | null;
+}

@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SearchableCombobox, type ComboboxOption } from "@/components/ui/searchable-combobox";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 
 import type { 
   ApiResponse, 
@@ -28,8 +28,8 @@ import type {
   GitHubRepository 
 } from "@/lib/types/github";
 
-interface CostCenterResponse extends ApiResponse<CostCenter> {}
-interface ResourceActionResponse extends ApiResponse<{ message: string }> {}
+type CostCenterResponse = ApiResponse<CostCenter>;
+type ResourceActionResponse = ApiResponse<{ message: string }>;
 
 export default function CostCenterDetailsPage() {
   const params = useParams<{ costCenterId: string }>();
@@ -428,7 +428,7 @@ export default function CostCenterDetailsPage() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <p className="text-muted-foreground">No resources assigned to this cost center.</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Click "Add Resource" to assign users, repositories, or organizations.
+                Click &ldquo;Add Resource&rdquo; to assign users, repositories, or organizations.
               </p>
             </div>
           ) : (

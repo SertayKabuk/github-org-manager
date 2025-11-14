@@ -48,11 +48,9 @@ function sanitizeMembers(members: GitHubMember[]): GitHubMember[] {
 function DroppableZone({
   id,
   children,
-  isOver,
 }: {
   id: string;
   children: React.ReactNode;
-  isOver: boolean;
 }) {
   const { setNodeRef } = useDroppable({ id });
 
@@ -292,7 +290,7 @@ export default function TeamMemberManager({
         autoScroll={{ interval: 5, acceleration: 10 }}
       >
         <div className="grid gap-6 md:grid-cols-2">
-          <DroppableZone id="team" isOver={dragOverTarget === "team"}>
+          <DroppableZone id="team">
             <Card
               className={[
                 "min-h-[300px] md:min-h-[400px] transition-colors",
@@ -341,7 +339,7 @@ export default function TeamMemberManager({
             </Card>
           </DroppableZone>
 
-          <DroppableZone id="available" isOver={dragOverTarget === "available"}>
+          <DroppableZone id="available">
             <Card
               className={[
                 "min-h-[300px] md:min-h-[400px] transition-colors",

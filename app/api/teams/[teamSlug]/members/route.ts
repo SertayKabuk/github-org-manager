@@ -35,7 +35,16 @@ const TEAM_MEMBER_ROLES = new Set(["member", "maintainer"] as const);
 
 type TeamRole = "member" | "maintainer";
 
-function mapMember(member: any): GitHubMember {
+interface OctokitTeamMemberPayload {
+  id: number;
+  login: string;
+  avatar_url: string;
+  name?: string | null;
+  role?: TeamRole | null;
+  type: string;
+}
+
+function mapMember(member: OctokitTeamMemberPayload): GitHubMember {
   return {
     id: member.id,
     login: member.login,

@@ -45,12 +45,14 @@ interface OctokitTeamMemberPayload {
 }
 
 function mapMember(member: OctokitTeamMemberPayload): GitHubMember {
+  const role = member.role ?? undefined;
+
   return {
     id: member.id,
     login: member.login,
     avatar_url: member.avatar_url,
     name: member.name ?? null,
-    role: member.role,
+    role,
     type: member.type,
   };
 }

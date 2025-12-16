@@ -48,6 +48,7 @@ export default function CostCenterDetailsPage() {
   const [resourceType, setResourceType] = useState<"users" | "organizations" | "repositories">("users");
   const [resourceName, setResourceName] = useState("");
   const [addingResource, setAddingResource] = useState(false);
+  const [addingAllMembers, setAddingAllMembers] = useState(false);
 
   // Available resources for combobox
   const [members, setMembers] = useState<GitHubMember[]>([]);
@@ -170,6 +171,53 @@ export default function CostCenterDetailsPage() {
       setError(err instanceof Error ? err.message : "Failed to delete cost center.");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleAddAllMembers = async () => {
+    if (!costCenterId) return;
+    
+    const confirmed = window.confirm("Are you sure you want to add ALL members to this cost center?");
+    if (!confirmed) return;
+
+    setAddingAllMembers(true);
+    try {
+      // Fetch members directly to ensure we have the latest list
+      const membersResponse = await fetch("/api/members");
+      if (!membersResponse.ok) {
+         throw new Error("Failed to fetch members");
+      }
+      const membersJson = (await membersResponse.json()) as ApiResponse<GitHubMember[]>;
+      const allMembers = membersJson.data;
+      
+      if (allMembers.length === 0) {
+          throw new Error("No members found to add.");
+      }
+
+      const userLogins = allMembers.map(m => m.login);
+
+      const body = {
+        users: userLogins
+      };
+
+      const response = await fetch(`/api/cost-centers/${costCenterId}/resource`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => null)) as ResourceActionResponse | null;
+        throw new Error(json?.error ?? `Failed to add resources (${response.status})`);
+      }
+
+      await loadCostCenterData();
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Failed to add all members.");
+    } finally {
+      setAddingAllMembers(false);
     }
   };
 
@@ -329,10 +377,20 @@ export default function CostCenterDetailsPage() {
                 Users, repositories, and organizations assigned to this cost center
               </CardDescription>
             </div>
-            <Button onClick={() => setShowAddResource(!showAddResource)} size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Resource
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleAddAllMembers} 
+                disabled={addingAllMembers || loading} 
+                variant="outline" 
+                size="sm"
+              >
+                {addingAllMembers ? "Adding All..." : "Add All Members"}
+              </Button>
+              <Button onClick={() => setShowAddResource(!showAddResource)} size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Resource
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

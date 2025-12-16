@@ -274,15 +274,10 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
               value={form.budget_entity_name}
               onValueChange={(value) => updateForm("budget_entity_name", value)}
             >
-              <SelectTrigger>
+              <SelectTrigger disabled={costCentersLoading || !!costCentersError || costCenters.length === 0}>
                 <SelectValue placeholder={costCentersLoading ? "Loading..." : "Select a cost center"} />
               </SelectTrigger>
               <SelectContent>
-                {costCentersLoading && <SelectItem value="">Loading...</SelectItem>}
-                {costCentersError && <SelectItem value="">Error loading cost centers</SelectItem>}
-                {!costCentersLoading && costCenters.length === 0 && !costCentersError && (
-                  <SelectItem value="">No cost centers</SelectItem>
-                )}
                 {costCenters.map((cc) => (
                   <SelectItem key={cc.id} value={cc.id}>
                     {cc.name}

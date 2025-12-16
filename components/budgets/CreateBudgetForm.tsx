@@ -214,7 +214,7 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
             id="budget-amount"
             type="number"
             min={0}
-            step={50}
+            step={1}
             value={form.budget_amount}
             onChange={(event) => updateForm("budget_amount", Number(event.target.value))}
             required

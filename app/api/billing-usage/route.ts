@@ -23,10 +23,8 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        let data: BillingUsageSummary = response.data;
-
         const payload: ApiResponse<BillingUsageSummary> = {
-            data,
+            data: response.data,
         };
 
         return NextResponse.json(payload, {

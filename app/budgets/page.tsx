@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Filter, Plus, RefreshCcw } from "lucide-react";
 
 import BudgetList from "@/components/budgets/BudgetList";
@@ -31,7 +31,7 @@ export default function BudgetsPage() {
   const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
   const [usageData, setUsageData] = useState<Record<string, number>>({});
 
-  const loadBudgets = async () => {
+  const loadBudgets = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -55,7 +55,7 @@ export default function BudgetsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const loadUsageData = async (budgetList: Budget[]) => {
     const costCenterBudgets = budgetList.filter(
@@ -81,7 +81,7 @@ export default function BudgetsPage() {
         
         // Sum up netAmount from all usage items for this cost center
         const totalSpent = usageItems.reduce(
-          (sum: number, item: any) => sum + (item.netAmount || 0),
+          (sum: number, item: { netAmount?: number }) => sum + (item.netAmount || 0),
           0
         );
 
@@ -144,7 +144,7 @@ export default function BudgetsPage() {
 
   useEffect(() => {
     loadBudgets();
-  }, []);
+  }, [loadBudgets]);
 
   const handleCreateBudget = async (data: CreateBudgetInput) => {
     setCreating(true);

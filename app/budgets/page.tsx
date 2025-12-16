@@ -11,11 +11,12 @@ import ErrorMessage from "@/components/ui/ErrorMessage";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, CreateBudgetInput, BudgetScope } from "@/lib/types/github";
+import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, CreateBudgetInput, BudgetScope, CostCenter } from "@/lib/types/github";
 
 type BudgetsResponse = ApiResponse<Budget[]>;
 type BudgetCreationResponse = ApiResponse<BudgetCreateResult>;
 type BudgetDeleteResponse = ApiResponse<BudgetDeleteResult>;
+type CostCentersResponse = ApiResponse<CostCenter[]>;
 
 type ScopeFilter = "all" | BudgetScope;
 
@@ -36,19 +37,34 @@ export default function BudgetsPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/budgets", {
-        cache: "no-store",
-      });
+      // Fetch budgets and cost centers in parallel
+      const [budgetsResponse, costCentersResponse] = await Promise.all([
+        fetch("/api/budgets", { cache: "no-store" }),
+        fetch("/api/cost-centers?state=active", { cache: "no-store" }),
+      ]);
 
-      if (!response.ok) {
-        throw new Error(`Failed to load budgets (${response.status})`);
+      if (!budgetsResponse.ok) {
+        throw new Error(`Failed to load budgets (${budgetsResponse.status})`);
       }
 
-      const json = (await response.json()) as BudgetsResponse;
-      setBudgets(json.data);
-      
+      const budgetsJson = (await budgetsResponse.json()) as BudgetsResponse;
+      setBudgets(budgetsJson.data);
+
+      // Build name-to-ID mapping from cost centers
+      let costCenterNameToId: Record<string, string> = {};
+      if (costCentersResponse.ok) {
+        const costCentersJson = (await costCentersResponse.json()) as CostCentersResponse;
+        costCenterNameToId = costCentersJson.data.reduce(
+          (acc, cc) => {
+            acc[cc.name] = cc.id;
+            return acc;
+          },
+          {} as Record<string, string>
+        );
+      }
+
       // Fetch usage data for cost center budgets
-      await loadUsageData(json.data);
+      await loadUsageData(budgetsJson.data, costCenterNameToId);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Failed to load budgets.");
@@ -57,7 +73,7 @@ export default function BudgetsPage() {
     }
   }, []);
 
-  const loadUsageData = async (budgetList: Budget[]) => {
+  const loadUsageData = async (budgetList: Budget[], costCenterNameToId: Record<string, string>) => {
     const costCenterBudgets = budgetList.filter(
       (budget) => budget.budget_scope === "cost_center" && budget.budget_entity_name
     );
@@ -66,8 +82,15 @@ export default function BudgetsPage() {
 
     const usagePromises = costCenterBudgets.map(async (budget) => {
       try {
+        // Look up the cost center ID using the name from the budget
+        const costCenterId = costCenterNameToId[budget.budget_entity_name!];
+        if (!costCenterId) {
+          console.warn(`No cost center ID found for name: ${budget.budget_entity_name}`);
+          return { budgetId: budget.id, spent: 0 };
+        }
+
         const response = await fetch(
-          `/api/billing-usage?costCenterId=${encodeURIComponent(budget.budget_entity_name!)}`,
+          `/api/billing-usage?costCenterId=${encodeURIComponent(costCenterId)}`,
           { cache: "no-store" }
         );
 
@@ -78,7 +101,7 @@ export default function BudgetsPage() {
 
         const json = await response.json();
         const usageItems = json.data?.usageItems || [];
-        
+
         // Sum up netAmount from all usage items for this cost center
         const totalSpent = usageItems.reduce(
           (sum: number, item: { netAmount?: number }) => sum + (item.netAmount || 0),

@@ -175,3 +175,12 @@ export interface BillingUsageSummary {
   costCenter?: BillingCostCenterRef | null;
   usageItems: BillingUsageItem[];
 }
+
+// Enterprise member types (from GraphQL API)
+export type EnterpriseMemberType = "EnterpriseUserAccount" | "User";
+
+export interface EnterpriseMember {
+  id: string;
+  login: string;
+  type: EnterpriseMemberType;
+}

@@ -20,12 +20,13 @@ import {
 } from "@/components/ui/select";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 
-import type { 
-  ApiResponse, 
-  CostCenter, 
-  CostCenterResource, 
-  GitHubMember, 
-  GitHubRepository 
+import type {
+  ApiResponse,
+  CostCenter,
+  CostCenterResource,
+  EnterpriseMember,
+  GitHubMember,
+  GitHubRepository
 } from "@/lib/types/github";
 
 type CostCenterResponse = ApiResponse<CostCenter>;
@@ -176,22 +177,22 @@ export default function CostCenterDetailsPage() {
 
   const handleAddAllMembers = async () => {
     if (!costCenterId) return;
-    
-    const confirmed = window.confirm("Are you sure you want to add ALL members to this cost center?");
+
+    const confirmed = window.confirm("Are you sure you want to add ALL enterprise members to this cost center?");
     if (!confirmed) return;
 
     setAddingAllMembers(true);
     try {
-      // Fetch members directly to ensure we have the latest list
-      const membersResponse = await fetch("/api/members");
+      // Fetch enterprise members using GraphQL API
+      const membersResponse = await fetch("/api/enterprise-members");
       if (!membersResponse.ok) {
-         throw new Error("Failed to fetch members");
+         throw new Error("Failed to fetch enterprise members");
       }
-      const membersJson = (await membersResponse.json()) as ApiResponse<GitHubMember[]>;
+      const membersJson = (await membersResponse.json()) as ApiResponse<EnterpriseMember[]>;
       const allMembers = membersJson.data;
-      
+
       if (allMembers.length === 0) {
-          throw new Error("No members found to add.");
+          throw new Error("No enterprise members found to add.");
       }
 
       const userLogins = allMembers.map(m => m.login);
@@ -199,7 +200,7 @@ export default function CostCenterDetailsPage() {
 
       for (let i = 0; i < userLogins.length; i += chunkSize) {
         const chunk = userLogins.slice(i, i + chunkSize);
-        
+
         const body = {
           users: chunk
         };
@@ -383,13 +384,13 @@ export default function CostCenterDetailsPage() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button 
-                onClick={handleAddAllMembers} 
-                disabled={addingAllMembers || loading} 
-                variant="outline" 
+              <Button
+                onClick={handleAddAllMembers}
+                disabled={addingAllMembers || loading}
+                variant="outline"
                 size="sm"
               >
-                {addingAllMembers ? "Adding All..." : "Add All Members"}
+                {addingAllMembers ? "Adding All..." : "Add All Enterprise Members"}
               </Button>
               <Button onClick={() => setShowAddResource(!showAddResource)} size="sm">
                 <Plus className="mr-2 h-4 w-4" />

@@ -182,11 +182,6 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
         const data: { data: CostCenter[]; error?: string } = json;
         if (!mounted) return;
         setCostCenters(data.data.filter((cc) => cc.state === "active") || []);
-
-        // if no entity selected, pre-select the first cost center id
-        if (!form.budget_entity_name && data.data && data.data.length > 0) {
-          updateForm("budget_entity_name", data.data[0].id);
-        }
       } catch (err) {
         if (!mounted) return;
         setCostCentersError(err instanceof Error ? err.message : String(err));

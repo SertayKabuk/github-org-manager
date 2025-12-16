@@ -29,6 +29,7 @@ export default function BudgetsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
+  const [usageData, setUsageData] = useState<Record<string, number>>({});
 
   const loadBudgets = async () => {
     setLoading(true);
@@ -45,12 +46,62 @@ export default function BudgetsPage() {
 
       const json = (await response.json()) as BudgetsResponse;
       setBudgets(json.data);
+      
+      // Fetch usage data for cost center budgets
+      await loadUsageData(json.data);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Failed to load budgets.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadUsageData = async (budgetList: Budget[]) => {
+    const costCenterBudgets = budgetList.filter(
+      (budget) => budget.budget_scope === "cost_center" && budget.budget_entity_name
+    );
+
+    if (costCenterBudgets.length === 0) return;
+
+    const usagePromises = costCenterBudgets.map(async (budget) => {
+      try {
+        const response = await fetch(
+          `/api/billing-usage?costCenterId=${encodeURIComponent(budget.budget_entity_name!)}`,
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          console.warn(`Failed to fetch usage for ${budget.budget_entity_name}`);
+          return { budgetId: budget.id, spent: 0 };
+        }
+
+        const json = await response.json();
+        const usageItems = json.data?.usageItems || [];
+        
+        // Sum up netAmount from all usage items for this cost center
+        const totalSpent = usageItems.reduce(
+          (sum: number, item: any) => sum + (item.netAmount || 0),
+          0
+        );
+
+        return { budgetId: budget.id, spent: totalSpent };
+      } catch (err) {
+        console.error(`Error fetching usage for ${budget.budget_entity_name}:`, err);
+        return { budgetId: budget.id, spent: 0 };
+      }
+    });
+
+    const results = await Promise.all(usagePromises);
+    const usageMap = results.reduce(
+      (acc, { budgetId, spent }) => {
+        acc[budgetId] = spent;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    setUsageData(usageMap);
   };
 
   const handleDeleteRequest = (budget: Budget) => {
@@ -237,7 +288,7 @@ export default function BudgetsPage() {
         </Card>
       )}
 
-      <BudgetList budgets={filteredBudgets} onDelete={handleDeleteRequest} deletingBudgetId={deletingBudgetId} />
+      <BudgetList budgets={filteredBudgets} onDelete={handleDeleteRequest} deletingBudgetId={deletingBudgetId} usageData={usageData} />
 
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => (open ? setDeleteDialogOpen(true) : closeDeleteDialog())}>
         <DialogContent>

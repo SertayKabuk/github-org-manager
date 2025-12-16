@@ -2,107 +2,123 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Budget } from "@/lib/types/github";
-import { AlertOctagon, BellRing, Coins, ShieldCheck, Trash2 } from "lucide-react";
+import { MoreVertical } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface BudgetCardProps {
   budget: Budget;
   onDelete?: (budget: Budget) => void;
   deleting?: boolean;
+  spent?: number;
 }
 
-const scopeLabels: Record<Budget["budget_scope"], string> = {
-  enterprise: "Enterprise",
-  organization: "Organization",
-  repository: "Repository",
-  cost_center: "Cost Center",
-};
+export default function BudgetCard({ budget, onDelete, deleting = false, spent = 0 }: BudgetCardProps) {
+  const budgetAmount = budget.budget_amount;
+  const spentAmount = spent;
+  const percentage = budgetAmount > 0 ? Math.min((spentAmount / budgetAmount) * 100, 100) : 0;
 
-export default function BudgetCard({ budget, onDelete, deleting = false }: BudgetCardProps) {
-  const skuLabel = budget.budget_product_sku ?? "–";
-  const amountLabel = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(budget.budget_amount);
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  // Determine progress bar color based on percentage
+  const getProgressColor = () => {
+    if (percentage >= 100) return "bg-red-500";
+    if (percentage >= 80) return "bg-amber-500";
+    return "bg-blue-500";
+  };
 
   return (
-    <Card className="flex h-full flex-col gap-4 border-border/60">
-      <CardHeader className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Coins className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">{amountLabel}</CardTitle>
-              <CardDescription>Budget limit</CardDescription>
+    <div className="flex items-center gap-4 rounded-lg border bg-card p-4 text-card-foreground">
+      {/* Cost center / Entity name column */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Cost center</span>
+        </div>
+        <div className="truncate font-medium">
+          {budget.budget_entity_name || budget.budget_scope}
+        </div>
+      </div>
+
+      {/* SKU column */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">SKU</span>
+        </div>
+        <div className="truncate text-sm">
+          {budget.budget_product_sku || "—"}
+        </div>
+      </div>
+
+      {/* Stop usage column */}
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Stop usage</span>
+        </div>
+        <div className="text-sm">
+          {budget.prevent_further_usage ? "Yes" : "No"}
+        </div>
+      </div>
+
+      {/* Usage progress column */}
+      <div className="flex min-w-0 flex-[2] flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1">
+            <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full transition-all ${getProgressColor()}`}
+                style={{ width: `${percentage}%` }}
+              />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="capitalize">
-              {scopeLabels[budget.budget_scope]}
-            </Badge>
-            {onDelete && (
+          <Badge variant="outline" className="shrink-0 tabular-nums">
+            {percentage.toFixed(0)}%
+          </Badge>
+        </div>
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>{formatCurrency(spentAmount)} spent</span>
+          <span>{formatCurrency(budgetAmount)} budget</span>
+        </div>
+      </div>
+
+      {/* Actions menu */}
+      <div>
+        {onDelete && (
+          <Popover>
+            <PopoverTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                className="h-8 w-8"
+                disabled={deleting}
+              >
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48" align="end">
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => onDelete(budget)}
                 disabled={deleting}
               >
-                <Trash2 className="h-4 w-4" />
-                <span className="sr-only">Delete budget</span>
+                {deleting ? "Deleting..." : "Delete budget"}
               </Button>
-            )}
-          </div>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">SKU:</span> {skuLabel}
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-emerald-500" />
-          <div>
-            Prevent overspend:
-            <span className="ml-2 font-medium text-foreground">
-              {budget.prevent_further_usage ? "Enabled" : "Disabled"}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <AlertOctagon className="h-4 w-4 text-amber-500" />
-          <div className="flex flex-wrap items-center gap-1">
-            <span>Pricing:</span>
-            <Badge variant="outline" className="capitalize">
-              {budget.budget_type}
-            </Badge>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <BellRing className="h-4 w-4 text-cyan-500" />
-          {budget.budget_alerting.will_alert ? (
-            <div className="flex flex-wrap gap-2">
-              {budget.budget_alerting.alert_recipients.length === 0 ? (
-                <span>No recipients defined</span>
-              ) : (
-                budget.budget_alerting.alert_recipients.map((recipient) => (
-                  <Badge key={recipient} variant="outline">@{recipient}</Badge>
-                ))
-              )}
-            </div>
-          ) : (
-            <span>Alerts disabled</span>
-          )}
-        </div>
-        {budget.budget_entity_name && (
-          <div className="text-muted-foreground">
-            Applies to: <span className="font-medium text-foreground">{budget.budget_entity_name}</span>
-          </div>
+            </PopoverContent>
+          </Popover>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

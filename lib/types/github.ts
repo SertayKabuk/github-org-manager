@@ -144,3 +144,34 @@ export interface BudgetDeleteResult {
   message: string;
   id: string;
 }
+
+// Billing usage summary types
+export interface BillingTimePeriod {
+  year: number;
+  month: number;
+}
+
+export interface BillingCostCenterRef {
+  id: string;
+  name: string;
+}
+
+export interface BillingUsageItem {
+  product: string;
+  sku: string;
+  grossQuantity: number;
+  discountQuantity: number;
+  netQuantity: number;
+  grossAmount: number;
+  discountAmount: number;
+  netAmount: number;
+  pricePerUnit: number;
+  unitType: string;
+}
+
+export interface BillingUsageSummary {
+  timePeriod: BillingTimePeriod;
+  enterprise: string;
+  costCenter?: BillingCostCenterRef | null;
+  usageItems: BillingUsageItem[];
+}

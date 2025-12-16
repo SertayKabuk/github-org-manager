@@ -30,6 +30,7 @@ const scopeOptions: { label: string; value: BudgetScope }[] = [
 const typeOptions: { label: string; value: BudgetType }[] = [
   { label: "Product Pricing", value: "ProductPricing" },
   { label: "SKU Pricing", value: "SkuPricing" },
+  { label: "Bundle Pricing", value: "BundlePricing" },
 ];
 
 const PRODUCT_PRICING_SKUS = [

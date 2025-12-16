@@ -13,7 +13,7 @@ import type {
 import { mapBudget, RawBudgetPayload } from "./transformers";
 
 const BUDGET_SCOPES = new Set<BudgetScope>(["enterprise", "organization", "repository", "cost_center"]);
-const BUDGET_TYPES = new Set<BudgetType>(["ProductPricing", "SkuPricing"]);
+const BUDGET_TYPES = new Set<BudgetType>(["ProductPricing", "SkuPricing", "BundlePricing"]);
 
 interface GitHubCreateBudgetResponse {
   message?: string;

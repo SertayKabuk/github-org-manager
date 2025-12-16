@@ -1,5 +1,5 @@
 # Multi-stage build for Next.js 16 application
-FROM node:20-alpine AS base
+FROM node:lts-alpine AS base
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate

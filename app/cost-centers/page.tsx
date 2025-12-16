@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Plus, Filter } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import CostCenterList from "@/components/cost-centers/CostCenterList";
 import CreateCostCenterForm from "@/components/cost-centers/CreateCostCenterForm";
@@ -16,49 +17,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCostCenters } from "@/lib/hooks";
 
 import type { ApiResponse, CostCenter, CreateCostCenterInput, CostCenterState } from "@/lib/types/github";
 
-type CostCentersResponse = ApiResponse<CostCenter[]>;
 type CostCenterResponse = ApiResponse<CostCenter>;
 
 type StateFilter = "all" | CostCenterState;
 
 export default function CostCentersPage() {
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [stateFilter, setStateFilter] = useState<StateFilter>("active");
 
-  const loadCostCenters = async () => {
-    setLoading(true);
-    setError(null);
+  // Fetch all cost centers (we filter client-side based on stateFilter)
+  const {
+    data: costCenters = [],
+    isLoading: loading,
+    error: fetchError,
+  } = useCostCenters();
 
-    try {
-      const response = await fetch("/api/cost-centers");
-
-      if (!response.ok) {
-        throw new Error(`Failed to load cost centers (${response.status})`);
-      }
-
-      const json = (await response.json()) as CostCentersResponse;
-      setCostCenters(json.data);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to load cost centers.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadCostCenters();
-  }, []);
+  const error = fetchError || actionError;
 
   const handleCreateCostCenter = async (data: CreateCostCenterInput) => {
     setCreating(true);
+    setActionError(null);
     try {
       const response = await fetch("/api/cost-centers", {
         method: "POST",
@@ -71,13 +56,12 @@ export default function CostCentersPage() {
         throw new Error(json?.error ?? `Failed to create cost center (${response.status})`);
       }
 
-      const json = (await response.json()) as CostCenterResponse;
-      setCostCenters((prev) => [...prev, json.data]);
+      // Invalidate cost centers cache
+      queryClient.invalidateQueries({ queryKey: ["cost-centers"] });
       setShowCreateForm(false);
-      setError(null);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to create cost center.");
+      setActionError(err instanceof Error ? err.message : "Failed to create cost center.");
     } finally {
       setCreating(false);
     }
@@ -139,7 +123,12 @@ export default function CostCentersPage() {
         </span>
       </div>
 
-      {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
+      {error && (
+        <ErrorMessage
+          message={error instanceof Error ? error.message : error}
+          onDismiss={() => setActionError(null)}
+        />
+      )}
 
       {showCreateForm && (
         <Card>

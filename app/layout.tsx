@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/layout/Header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { QueryProvider } from "@/lib/query-provider";
 
 import "./globals.css";
 
@@ -38,14 +39,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <div className="min-h-screen bg-background">
-              <Header />
-              <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-                {children}
-              </main>
-            </div>
-          </AuthProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <div className="min-h-screen bg-background">
+                <Header />
+                <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                  {children}
+                </main>
+              </div>
+            </AuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

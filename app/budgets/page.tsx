@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Filter, Plus, RefreshCcw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import BudgetList from "@/components/budgets/BudgetList";
 import CreateBudgetForm from "@/components/budgets/CreateBudgetForm";
@@ -11,70 +12,50 @@ import ErrorMessage from "@/components/ui/ErrorMessage";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, CreateBudgetInput, BudgetScope, CostCenter } from "@/lib/types/github";
+import { useBudgets, useCostCenters } from "@/lib/hooks";
+import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, CreateBudgetInput, BudgetScope } from "@/lib/types/github";
 
-type BudgetsResponse = ApiResponse<Budget[]>;
 type BudgetCreationResponse = ApiResponse<BudgetCreateResult>;
 type BudgetDeleteResponse = ApiResponse<BudgetDeleteResult>;
-type CostCentersResponse = ApiResponse<CostCenter[]>;
 
 type ScopeFilter = "all" | BudgetScope;
 
 export default function BudgetsPage() {
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
   const [usageData, setUsageData] = useState<Record<string, number>>({});
 
-  const loadBudgets = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const {
+    data: budgets = [],
+    isLoading: loading,
+    error: budgetsError,
+    refetch: refetchBudgets,
+  } = useBudgets();
 
-    try {
-      // Fetch budgets and cost centers in parallel
-      const [budgetsResponse, costCentersResponse] = await Promise.all([
-        fetch("/api/budgets", { cache: "no-store" }),
-        fetch("/api/cost-centers?state=active", { cache: "no-store" }),
-      ]);
+  const { data: costCenters = [] } = useCostCenters({ state: "active" });
 
-      if (!budgetsResponse.ok) {
-        throw new Error(`Failed to load budgets (${budgetsResponse.status})`);
-      }
+  const error = budgetsError || actionError;
 
-      const budgetsJson = (await budgetsResponse.json()) as BudgetsResponse;
-      setBudgets(budgetsJson.data);
+  // Build cost center name-to-ID mapping
+  const costCenterNameToId = useMemo(() => {
+    return costCenters.reduce(
+      (acc, cc) => {
+        acc[cc.name] = cc.id;
+        return acc;
+      },
+      {} as Record<string, string>
+    );
+  }, [costCenters]);
 
-      // Build name-to-ID mapping from cost centers
-      let costCenterNameToId: Record<string, string> = {};
-      if (costCentersResponse.ok) {
-        const costCentersJson = (await costCentersResponse.json()) as CostCentersResponse;
-        costCenterNameToId = costCentersJson.data.reduce(
-          (acc, cc) => {
-            acc[cc.name] = cc.id;
-            return acc;
-          },
-          {} as Record<string, string>
-        );
-      }
-
-      // Fetch usage data for cost center budgets
-      await loadUsageData(budgetsJson.data, costCenterNameToId);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to load budgets.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadUsageData = async (budgetList: Budget[], costCenterNameToId: Record<string, string>) => {
-    const costCenterBudgets = budgetList.filter(
+  // Load usage data for cost center budgets
+  const loadUsageData = useCallback(async () => {
+    const costCenterBudgets = budgets.filter(
       (budget) => budget.budget_scope === "cost_center" && budget.budget_entity_name
     );
 
@@ -82,7 +63,6 @@ export default function BudgetsPage() {
 
     const usagePromises = costCenterBudgets.map(async (budget) => {
       try {
-        // Look up the cost center ID using the name from the budget
         const costCenterId = costCenterNameToId[budget.budget_entity_name!];
         if (!costCenterId) {
           console.warn(`No cost center ID found for name: ${budget.budget_entity_name}`);
@@ -90,8 +70,7 @@ export default function BudgetsPage() {
         }
 
         const response = await fetch(
-          `/api/billing-usage?costCenterId=${encodeURIComponent(costCenterId)}`,
-          { cache: "no-store" }
+          `/api/billing-usage?costCenterId=${encodeURIComponent(costCenterId)}`
         );
 
         if (!response.ok) {
@@ -102,7 +81,6 @@ export default function BudgetsPage() {
         const json = await response.json();
         const usageItems = json.data?.usageItems || [];
 
-        // Sum up netAmount from all usage items for this cost center
         const totalSpent = usageItems.reduce(
           (sum: number, item: { netAmount?: number }) => sum + (item.netAmount || 0),
           0
@@ -125,6 +103,18 @@ export default function BudgetsPage() {
     );
 
     setUsageData(usageMap);
+  }, [budgets, costCenterNameToId]);
+
+  // Load usage data when budgets or cost centers change
+  useEffect(() => {
+    if (budgets.length > 0 && Object.keys(costCenterNameToId).length > 0) {
+      loadUsageData();
+    }
+  }, [budgets, costCenterNameToId, loadUsageData]);
+
+  const handleRefresh = () => {
+    refetchBudgets();
+    loadUsageData();
   };
 
   const handleDeleteRequest = (budget: Budget) => {
@@ -141,6 +131,7 @@ export default function BudgetsPage() {
   const handleConfirmDelete = async () => {
     if (!selectedBudget) return;
     setDeletingBudgetId(selectedBudget.id);
+    setActionError(null);
 
     try {
       const response = await fetch(`/api/budgets/${selectedBudget.id}`, {
@@ -153,24 +144,21 @@ export default function BudgetsPage() {
         throw new Error(json?.data.message ?? `Failed to delete budget (${response.status})`);
       }
 
-      setBudgets((prev) => prev.filter((budget) => budget.id !== selectedBudget.id));
-      setError(null);
+      // Invalidate budgets cache
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
       setDeleteDialogOpen(false);
       setSelectedBudget(null);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to delete budget.");
+      setActionError(err instanceof Error ? err.message : "Failed to delete budget.");
     } finally {
       setDeletingBudgetId(null);
     }
   };
 
-  useEffect(() => {
-    loadBudgets();
-  }, [loadBudgets]);
-
   const handleCreateBudget = async (data: CreateBudgetInput) => {
     setCreating(true);
+    setActionError(null);
 
     try {
       const response = await fetch("/api/budgets", {
@@ -188,11 +176,11 @@ export default function BudgetsPage() {
       }
 
       setShowCreateForm(false);
-      await loadBudgets();
-      setError(null);
+      // Invalidate budgets cache
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to create budget.");
+      setActionError(err instanceof Error ? err.message : "Failed to create budget.");
     } finally {
       setCreating(false);
     }
@@ -241,7 +229,7 @@ export default function BudgetsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={loadBudgets} disabled={loading}>
+          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
             <RefreshCcw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
@@ -297,7 +285,12 @@ export default function BudgetsPage() {
         <div className="text-sm text-muted-foreground">Showing {filteredBudgets.length} of {budgets.length}</div>
       </div>
 
-      {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
+      {error && (
+        <ErrorMessage
+          message={error instanceof Error ? error.message : error}
+          onDismiss={() => setActionError(null)}
+        />
+      )}
 
       {showCreateForm && (
         <Card>

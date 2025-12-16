@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Save, Trash2, RotateCcw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import TeamMemberManager from "@/components/teams/TeamMemberManager";
 import { Input } from "@/components/ui/input";
@@ -18,83 +19,76 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { Button } from "@/components/ui/button";
+import { useTeam, useTeamMembers, useMembers } from "@/lib/hooks";
 
-import type { ApiResponse, GitHubMember, GitHubTeam, TeamPrivacy } from "@/lib/types/github";
+import type { ApiResponse, GitHubTeam, TeamPrivacy } from "@/lib/types/github";
 
 type TeamResponse = ApiResponse<GitHubTeam>;
-type MembersResponse = ApiResponse<GitHubMember[]>;
 
 export default function TeamDetailsPage() {
   const params = useParams<{ teamSlug: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const teamSlug = params?.teamSlug;
 
-  const [team, setTeam] = useState<GitHubTeam | null>(null);
-  const [teamMembers, setTeamMembers] = useState<GitHubMember[]>([]);
-  const [orgMembers, setOrgMembers] = useState<GitHubMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [formState, setFormState] = useState<{
     name: string;
     description: string;
     privacy: TeamPrivacy;
   } | null>(null);
 
-  const loadTeamData = useCallback(async () => {
-    if (!teamSlug) return;
+  const {
+    data: team,
+    isLoading: teamLoading,
+    error: teamError,
+    refetch: refetchTeam,
+  } = useTeam(teamSlug);
 
-    setLoading(true);
-    setError(null);
+  const {
+    data: teamMembers = [],
+    isLoading: teamMembersLoading,
+    error: teamMembersError,
+  } = useTeamMembers(teamSlug);
 
-    try {
-      const [teamResponse, teamMembersResponse, membersResponse] = await Promise.all([
-        fetch(`/api/teams/${teamSlug}`),
-        fetch(`/api/teams/${teamSlug}/members`),
-        fetch(`/api/members`),
-      ]);
+  const {
+    data: orgMembers = [],
+    isLoading: orgMembersLoading,
+    error: orgMembersError,
+  } = useMembers();
 
-      if (!teamResponse.ok) {
-        throw new Error(`Failed to load team (${teamResponse.status})`);
-      }
+  const loading = teamLoading || teamMembersLoading || orgMembersLoading;
+  const error = teamError || teamMembersError || orgMembersError || actionError;
 
-      const teamJson = (await teamResponse.json()) as TeamResponse;
-
-      if (!teamMembersResponse.ok) {
-        throw new Error(`Failed to load team members (${teamMembersResponse.status})`);
-      }
-      const teamMembersJson = (await teamMembersResponse.json()) as MembersResponse;
-
-      if (!membersResponse.ok) {
-        throw new Error(`Failed to load organization members (${membersResponse.status})`);
-      }
-      const membersJson = (await membersResponse.json()) as MembersResponse;
-
-      setTeam(teamJson.data);
-      setTeamMembers(teamMembersJson.data);
-      setOrgMembers(membersJson.data);
-      setFormState({
-        name: teamJson.data.name,
-        description: teamJson.data.description ?? "",
-        privacy: teamJson.data.privacy,
-      });
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to load team data.");
-    } finally {
-      setLoading(false);
-    }
-  }, [teamSlug]);
-
+  // Initialize form state when team data loads
   useEffect(() => {
-    loadTeamData();
-  }, [loadTeamData]);
+    if (team && !formState) {
+      setFormState({
+        name: team.name,
+        description: team.description ?? "",
+        privacy: team.privacy,
+      });
+    }
+  }, [team, formState]);
+
+  const handleReset = () => {
+    if (team) {
+      setFormState({
+        name: team.name,
+        description: team.description ?? "",
+        privacy: team.privacy,
+      });
+    }
+    refetchTeam();
+  };
 
   const handleUpdateTeam = async () => {
     if (!teamSlug || !formState) return;
 
     setSaving(true);
+    setActionError(null);
     try {
       const response = await fetch(`/api/teams/${teamSlug}`, {
         method: "PATCH",
@@ -112,16 +106,18 @@ export default function TeamDetailsPage() {
       }
 
       const json = (await response.json()) as TeamResponse;
-      setTeam(json.data);
       setFormState({
         name: json.data.name,
         description: json.data.description ?? "",
         privacy: json.data.privacy,
       });
-      setError(null);
+
+      // Invalidate team cache to refetch
+      queryClient.invalidateQueries({ queryKey: ["teams", teamSlug] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to update team.");
+      setActionError(err instanceof Error ? err.message : "Failed to update team.");
     } finally {
       setSaving(false);
     }
@@ -137,16 +133,20 @@ export default function TeamDetailsPage() {
     if (!confirmed) return;
 
     setDeleting(true);
+    setActionError(null);
     try {
       const response = await fetch(`/api/teams/${teamSlug}`, { method: "DELETE" });
       if (!response.ok && response.status !== 204) {
         const json = (await response.json().catch(() => null)) as TeamResponse | null;
         throw new Error(json?.error ?? `Failed to delete team (${response.status})`);
       }
+
+      // Invalidate teams cache
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
       router.push("/teams");
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to delete team.");
+      setActionError(err instanceof Error ? err.message : "Failed to delete team.");
     } finally {
       setDeleting(false);
     }
@@ -163,7 +163,12 @@ export default function TeamDetailsPage() {
   }
 
   if (error) {
-    return <ErrorMessage message={error} onDismiss={() => setError(null)} />;
+    return (
+      <ErrorMessage
+        message={error instanceof Error ? error.message : error}
+        onDismiss={() => setActionError(null)}
+      />
+    );
   }
 
   if (!team || !formState) {
@@ -240,7 +245,7 @@ export default function TeamDetailsPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
-              onClick={loadTeamData}
+              onClick={handleReset}
               disabled={saving}
             >
               <RotateCcw className="mr-2 h-4 w-4" />

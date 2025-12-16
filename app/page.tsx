@@ -1,7 +1,6 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { Users, Layers, GitFork, Plus, ArrowRight, Github, LogIn } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,115 +10,31 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { useAuth } from "@/components/auth/AuthProvider";
-
-import type { GitHubOrganization, GitHubTeam } from "@/lib/types/github";
-
-interface DashboardState {
-  org: (GitHubOrganization & { member_count: number }) | null;
-  teams: GitHubTeam[];
-  membersCount: number;
-}
-
-async function fetchJson<T>(url: string, retries = 2, delay = 100): Promise<T> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(url, {
-        cache: 'no-store',
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        // If it's a 401 and we have retries left, wait and retry
-        // This handles race conditions where session isn't immediately available
-        if (response.status === 401 && attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-        
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch ${url}`);
-      }
-      
-      return response.json() as Promise<T>;
-    } catch (error) {
-      // On last attempt, throw the error
-      if (attempt === retries) {
-        throw error;
-      }
-      // Otherwise wait and retry
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  
-  throw new Error(`Failed to fetch ${url} after ${retries + 1} attempts`);
-}
+import { useOrg, useTeams, useMembers } from "@/lib/hooks";
 
 export default function Home() {
   const { isAuthenticated, isLoading: authLoading, login } = useAuth();
-  const [state, setState] = useState<DashboardState>({
-    org: null,
-    teams: [],
-    membersCount: 0,
-  });
-  // Start with loading true if we're authenticated, false otherwise
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Don't fetch data if not authenticated
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
+  const {
+    data: org,
+    isLoading: orgLoading,
+    error: orgError,
+  } = useOrg();
 
-    // Reset loading state when starting to fetch
-    setLoading(true);
-    let isMounted = true;
+  const {
+    data: teams = [],
+    isLoading: teamsLoading,
+    error: teamsError,
+  } = useTeams();
 
-    const loadData = async () => {
-      try {
-        const [orgResponse, teamsResponse, membersResponse] = await Promise.all([
-          fetchJson<{ data: GitHubOrganization & { member_count: number }; error?: string }>("/api/orgs"),
-          fetchJson<{ data: GitHubTeam[]; error?: string }>("/api/teams"),
-          fetchJson<{ data: Array<{ login: string }>; error?: string }>("/api/members"),
-        ]);
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    error: membersError,
+  } = useMembers();
 
-        if (!isMounted) return;
-
-        // Check for errors in the response body
-        if (orgResponse.error) {
-          throw new Error(`Organization API error: ${orgResponse.error}`);
-        }
-        if (teamsResponse.error) {
-          throw new Error(`Teams API error: ${teamsResponse.error}`);
-        }
-        if (membersResponse.error) {
-          throw new Error(`Members API error: ${membersResponse.error}`);
-        }
-
-        setState({
-          org: orgResponse.data,
-          teams: teamsResponse.data || [],
-          membersCount: membersResponse.data?.length || 0,
-        });
-        setError(null);
-      } catch (err) {
-        console.error("Error loading dashboard data:", err);
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load dashboard data.");
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthenticated]);
+  const loading = orgLoading || teamsLoading || membersLoading;
+  const error = orgError || teamsError || membersError;
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -211,10 +126,10 @@ export default function Home() {
   }
 
   if (error) {
-    return <ErrorMessage message={error} onDismiss={() => setError(null)} />;
+    return <ErrorMessage message={error.message} />;
   }
 
-  if (!state.org) {
+  if (!org) {
     return <ErrorMessage message="Organization data is unavailable." />;
   }
 
@@ -227,9 +142,9 @@ export default function Home() {
             <Github className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{state.org.name ?? state.org.login}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{org.name ?? org.login}</h1>
             <p className="text-muted-foreground">
-              {state.org.description ?? "No organization description provided."}
+              {org.description ?? "No organization description provided."}
             </p>
           </div>
         </div>
@@ -245,7 +160,7 @@ export default function Home() {
             <Users className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{state.membersCount}</div>
+            <div className="text-3xl font-bold">{members.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Active organization members
             </p>
@@ -260,7 +175,7 @@ export default function Home() {
             <Layers className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{state.teams.length}</div>
+            <div className="text-3xl font-bold">{teams.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Organized in teams
             </p>
@@ -275,7 +190,7 @@ export default function Home() {
             <GitFork className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{state.org.public_repos}</div>
+            <div className="text-3xl font-bold">{org.public_repos}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Open source projects
             </p>
@@ -316,14 +231,14 @@ export default function Home() {
           <CardDescription>Recently created teams in your organization</CardDescription>
         </CardHeader>
         <CardContent>
-          {state.teams.length === 0 ? (
+          {teams.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Layers className="h-12 w-12 text-muted-foreground/50 mb-4" />
               <p className="text-sm text-muted-foreground">No teams yet. Create one to get started.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {state.teams.slice(0, 4).map((team) => (
+              {teams.slice(0, 4).map((team) => (
                 <div key={team.id}>
                   <div className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3">
@@ -348,18 +263,18 @@ export default function Home() {
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>
-                  {team.id !== state.teams.slice(0, 4)[state.teams.slice(0, 4).length - 1].id && (
+                  {team.id !== teams.slice(0, 4)[teams.slice(0, 4).length - 1].id && (
                     <Separator />
                   )}
                 </div>
               ))}
-              {state.teams.length > 4 && (
+              {teams.length > 4 && (
                 <div className="pt-2">
                   <Link
                     href="/teams"
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    View all {state.teams.length} teams →
+                    View all {teams.length} teams →
                   </Link>
                 </div>
               )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Users, Filter, LogIn } from "lucide-react";
 
 import MemberList from "@/components/members/MemberList";
@@ -16,10 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { useAuth } from "@/components/auth/AuthProvider";
-
-import type { ApiResponse, GitHubMember, GitHubTeam } from "@/lib/types/github";
-
-type RoleFilter = "all" | "admin" | "member";
+import { useMembers, useTeams, type MemberRole } from "@/lib/hooks";
 
 const ROLE_OPTIONS = [
   { label: "All members", value: "all" },
@@ -29,104 +26,34 @@ const ROLE_OPTIONS = [
 
 export default function MembersPage() {
   const { isAuthenticated, isLoading: authLoading, login } = useAuth();
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [roleFilter, setRoleFilter] = useState<MemberRole>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
-  const [members, setMembers] = useState<GitHubMember[]>([]);
-  const [teams, setTeams] = useState<GitHubTeam[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Fetch teams for the filter dropdown
-  useEffect(() => {
-    if (!isAuthenticated) {
-      return;
+  const { data: teams = [] } = useTeams();
+
+  // Fetch members with filters
+  // For "none" team filter, we fetch all members and filter client-side
+  const {
+    data: fetchedMembers = [],
+    isLoading: loading,
+    error,
+  } = useMembers({
+    role: roleFilter,
+    team: teamFilter !== "all" && teamFilter !== "none" ? teamFilter : undefined,
+  });
+
+  // If filtering for "no team", filter client-side
+  const members = useMemo(() => {
+    if (teamFilter === "none") {
+      return fetchedMembers.filter(
+        (member) => !member.teams || member.teams.length === 0
+      );
     }
+    return fetchedMembers;
+  }, [fetchedMembers, teamFilter]);
 
-    let isMounted = true;
-
-    const fetchTeams = async () => {
-      try {
-        const response = await fetch("/api/teams");
-        if (!response.ok) {
-          throw new Error(`Failed to fetch teams (${response.status})`);
-        }
-        const json = (await response.json()) as ApiResponse<GitHubTeam[]>;
-        if (!isMounted) return;
-        setTeams(json.data);
-      } catch (err) {
-        console.error("Error fetching teams:", err);
-        // Don't set error here, teams filter is optional
-      }
-    };
-
-    fetchTeams();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    const fetchMembers = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const params = new URLSearchParams();
-        if (roleFilter !== "all") {
-          params.append("role", roleFilter);
-        }
-        // Only add team filter to API if it's not "all" or "none"
-        // For "none", we'll fetch all members and filter client-side
-        if (teamFilter !== "all" && teamFilter !== "none") {
-          params.append("team", teamFilter);
-        }
-
-        const queryString = params.toString();
-        const url = `/api/members${queryString ? `?${queryString}` : ""}`;
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch members (${response.status})`);
-        }
-        const json = (await response.json()) as ApiResponse<GitHubMember[]>;
-        if (!isMounted) return;
-        
-        // If filtering for "no team", filter client-side
-        if (teamFilter === "none") {
-          const membersWithNoTeam = json.data.filter(
-            (member) => !member.teams || member.teams.length === 0
-          );
-          setMembers(membersWithNoTeam);
-        } else {
-          setMembers(json.data);
-        }
-      } catch (err) {
-        console.error(err);
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load members.");
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchMembers();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [roleFilter, teamFilter, isAuthenticated]);
-
-  const memberCount = useMemo(() => members.length, [members]);
+  const memberCount = members.length;
 
   const filterLabel = useMemo(() => {
     if (teamFilter === "none") {
@@ -196,7 +123,7 @@ export default function MembersPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as RoleFilter)}>
+          <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as MemberRole)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
@@ -225,7 +152,7 @@ export default function MembersPage() {
           ))}
         </div>
       ) : error ? (
-        <ErrorMessage message={error} onDismiss={() => setError(null)} />
+        <ErrorMessage message={error.message} />
       ) : (
         <MemberList members={members} />
       )}

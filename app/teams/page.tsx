@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Search, LogIn, Layers } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import TeamList from "@/components/teams/TeamList";
 import { Input } from "@/components/ui/input";
@@ -11,48 +12,22 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useTeams } from "@/lib/hooks";
 
 import type { GitHubTeam } from "@/lib/types/github";
 
-interface TeamsResponse {
-  data: GitHubTeam[];
-  error?: string;
-}
-
 export default function TeamsPage() {
   const { isAuthenticated, isLoading: authLoading, login } = useAuth();
-  const [teams, setTeams] = useState<GitHubTeam[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const loadTeams = useCallback(async () => {
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch("/api/teams");
-      if (!response.ok) {
-        throw new Error(`Failed to fetch teams (${response.status})`);
-      }
-      const json = (await response.json()) as TeamsResponse;
-      setTeams(json.data);
-      setError(json.error ?? null);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to load teams.");
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    loadTeams();
-  }, [loadTeams]);
+  const {
+    data: teams = [],
+    isLoading: loading,
+    error,
+  } = useTeams();
 
   const filteredTeams = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();
@@ -109,10 +84,11 @@ export default function TeamsPage() {
         throw new Error(await response.text());
       }
 
-      setTeams((prev) => prev.filter((item) => item.id !== team.id));
+      // Invalidate the teams cache to refetch
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to delete team.");
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete team.");
     }
   };
 
@@ -149,8 +125,11 @@ export default function TeamsPage() {
           <Skeleton className="h-32" />
           <Skeleton className="h-32" />
         </div>
-      ) : error ? (
-        <ErrorMessage message={error} onDismiss={() => setError(null)} />
+      ) : error || deleteError ? (
+        <ErrorMessage
+          message={error?.message || deleteError || "An error occurred"}
+          onDismiss={() => setDeleteError(null)}
+        />
       ) : (
         <TeamList
           teams={filteredTeams}

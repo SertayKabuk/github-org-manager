@@ -20,9 +20,7 @@ const scopeLabels: Record<Budget["budget_scope"], string> = {
 };
 
 export default function BudgetCard({ budget, onDelete, deleting = false }: BudgetCardProps) {
-  const skuLabel = budget.budget_product_skus?.length
-    ? budget.budget_product_skus.join(", ")
-    : budget.budget_product_sku ?? "–";
+  const skuLabel = budget.budget_product_sku ?? "–";
   const amountLabel = new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: "USD",

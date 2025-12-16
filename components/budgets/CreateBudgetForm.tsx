@@ -51,9 +51,14 @@ const SKU_PRICING_SKUS = [
   { value: "spark_premium_request", label: "Spark Premium Request" },
 ] as const;
 
+const BUNDLE_PRICING_SKUS = [
+  { value: "premium_requests", label: "Copilot premium requests/Coding Agent premium requests/Spark premium requests" },
+] as const;
+
 const SKU_OPTIONS: Record<BudgetType, readonly { value: string; label: string }[]> = {
   ProductPricing: PRODUCT_PRICING_SKUS,
   SkuPricing: SKU_PRICING_SKUS,
+  BundlePricing: BUNDLE_PRICING_SKUS,
 };
 
 interface CreateBudgetFormProps {

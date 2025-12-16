@@ -17,12 +17,6 @@ export interface RawBudgetPayload {
 }
 
 export function mapBudget(payload: RawBudgetPayload): Budget {
-  const productSkus = Array.isArray(payload?.budget_product_skus)
-    ? payload.budget_product_skus
-    : payload?.budget_product_sku
-      ? [payload.budget_product_sku]
-      : [];
-
   return {
     id: String(payload?.id ?? payload?.budget_id ?? ""),
     budget_scope: payload?.budget_scope ?? "enterprise",
@@ -32,8 +26,7 @@ export function mapBudget(payload: RawBudgetPayload): Budget {
       : Number(payload?.budget_amount ?? 0),
     prevent_further_usage: Boolean(payload?.prevent_further_usage),
     budget_type: payload?.budget_type ?? "ProductPricing",
-    budget_product_skus: productSkus,
-    budget_product_sku: payload?.budget_product_sku ?? productSkus[0],
+    budget_product_sku: payload?.budget_product_sku,
     budget_alerting: {
       will_alert: Boolean(payload?.budget_alerting?.will_alert),
       alert_recipients: Array.isArray(payload?.budget_alerting?.alert_recipients)

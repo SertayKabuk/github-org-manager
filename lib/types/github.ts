@@ -107,7 +107,7 @@ export interface ResourceReassignment {
 
 export type BudgetScope = "enterprise" | "organization" | "repository" | "cost_center";
 
-export type BudgetType = "ProductPricing" | "SkuPricing";
+export type BudgetType = "ProductPricing" | "SkuPricing" | "BundlePricing";
 
 export interface BudgetAlerting {
   will_alert: boolean;
@@ -121,7 +121,6 @@ export interface Budget {
   budget_amount: number;
   prevent_further_usage: boolean;
   budget_type: BudgetType;
-  budget_product_skus?: string[];
   budget_product_sku?: string;
   budget_alerting: BudgetAlerting;
 }

@@ -195,20 +195,25 @@ export default function CostCenterDetailsPage() {
       }
 
       const userLogins = allMembers.map(m => m.login);
+      const chunkSize = 50;
 
-      const body = {
-        users: userLogins
-      };
+      for (let i = 0; i < userLogins.length; i += chunkSize) {
+        const chunk = userLogins.slice(i, i + chunkSize);
+        
+        const body = {
+          users: chunk
+        };
 
-      const response = await fetch(`/api/cost-centers/${costCenterId}/resource`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+        const response = await fetch(`/api/cost-centers/${costCenterId}/resource`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
 
-      if (!response.ok) {
-        const json = (await response.json().catch(() => null)) as ResourceActionResponse | null;
-        throw new Error(json?.error ?? `Failed to add resources (${response.status})`);
+        if (!response.ok) {
+          const json = (await response.json().catch(() => null)) as ResourceActionResponse | null;
+          throw new Error(json?.error ?? `Failed to add resources batch ${Math.floor(i / chunkSize) + 1} (${response.status})`);
+        }
       }
 
       await loadCostCenterData();

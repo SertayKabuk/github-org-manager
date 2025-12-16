@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
 
@@ -8,6 +8,7 @@ import type {
   BudgetScope,
   BudgetType,
   CreateBudgetInput,
+  CostCenter,
 } from "@/lib/types/github";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,8 +84,18 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
   });
   const [recipientInput, setRecipientInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [costCentersLoading, setCostCentersLoading] = useState(false);
+  const [costCentersError, setCostCentersError] = useState<string | null>(null);
 
-  const canSubmit = useMemo(() => form.budget_product_sku.trim().length > 0 && form.budget_amount >= 0, [form]);
+  const canSubmit = useMemo(() => {
+    const base = form.budget_product_sku.trim().length > 0 && form.budget_amount >= 0;
+    if (!base) return false;
+    if (form.budget_scope === "cost_center") {
+      return Boolean(form.budget_entity_name && form.budget_entity_name.trim().length > 0);
+    }
+    return true;
+  }, [form]);
   const currentSkuOptions = SKU_OPTIONS[form.budget_type];
 
   const updateForm = <K extends keyof CreateBudgetInput>(key: K, value: CreateBudgetInput[K]) => {
@@ -136,7 +147,11 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
     event.preventDefault();
 
     if (!canSubmit) {
-      setError("Budget amount and SKU are required.");
+      setError(
+        form.budget_scope === "cost_center"
+          ? "Budget amount, SKU and cost center are required."
+          : "Budget amount and SKU are required."
+      );
       return;
     }
 
@@ -149,6 +164,40 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
       budget_product_sku: form.budget_product_sku.trim(),
     });
   };
+
+  // Fetch cost centers when the selected scope is cost_center
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      if (form.budget_scope !== "cost_center") return;
+
+      setCostCentersLoading(true);
+      setCostCentersError(null);
+
+      try {
+        const res = await fetch(`/api/cost-centers`);
+        if (!res.ok) throw new Error(`Failed to load cost centers: ${res.status}`);
+        const json = await res.json();
+        const data: { data: CostCenter[]; error?: string } = json;
+        if (!mounted) return;
+        setCostCenters(data.data.filter((cc) => cc.state === "active") || []);
+        
+      } catch (err) {
+        if (!mounted) return;
+        setCostCentersError(err instanceof Error ? err.message : String(err));
+        setCostCenters([]);
+      } finally {
+        if (mounted) setCostCentersLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [form.budget_scope]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -212,17 +261,45 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2 md:col-span-2">
-          <label htmlFor="budget-entity" className="text-sm font-medium">
-            Entity name (optional)
-          </label>
-          <Input
-            id="budget-entity"
-            placeholder="e.g. octo-org or octo-org/octo-repo"
-            value={form.budget_entity_name}
-            onChange={(event) => updateForm("budget_entity_name", event.target.value)}
-          />
-        </div>
+        {form.budget_scope === "cost_center" ? (
+          <div className="space-y-2 md:col-span-2">
+            <label htmlFor="budget-entity" className="text-sm font-medium">
+              Cost center
+            </label>
+            <Select
+              value={form.budget_entity_name}
+              onValueChange={(value) => updateForm("budget_entity_name", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={costCentersLoading ? "Loading..." : "Select a cost center"} />
+              </SelectTrigger>
+              <SelectContent>
+                {costCentersLoading && <SelectItem value="">Loading...</SelectItem>}
+                {costCentersError && <SelectItem value="">Error loading cost centers</SelectItem>}
+                {!costCentersLoading && costCenters.length === 0 && !costCentersError && (
+                  <SelectItem value="">No cost centers</SelectItem>
+                )}
+                {costCenters.map((cc) => (
+                  <SelectItem key={cc.id} value={cc.id}>
+                    {cc.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <div className="space-y-2 md:col-span-2">
+            <label htmlFor="budget-entity" className="text-sm font-medium">
+              Entity name (optional)
+            </label>
+            <Input
+              id="budget-entity"
+              placeholder="e.g. octo-org or octo-org/octo-repo"
+              value={form.budget_entity_name}
+              onChange={(event) => updateForm("budget_entity_name", event.target.value)}
+            />
+          </div>
+        )}
         <div className="space-y-2 md:col-span-2">
           <label className="text-sm font-medium">
             {form.budget_type === "ProductPricing" ? "Product" : "SKU"}

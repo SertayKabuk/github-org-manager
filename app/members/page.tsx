@@ -32,7 +32,7 @@ export default function MembersPage() {
 
   // Fetch teams for the filter dropdown
   const { data: teams = [] } = useTeams();
-  
+
   // Fetch active cost centers
   const { data: costCenters = [] } = useCostCenters({ state: "active" });
 
@@ -63,21 +63,21 @@ export default function MembersPage() {
   // If filtering for "no team" or "no cost center", filter client-side
   const members = useMemo(() => {
     let filtered = fetchedMembers;
-    
+
     // Filter by team
     if (teamFilter === "none") {
       filtered = filtered.filter(
         (member) => !member.teams || member.teams.length === 0
       );
     }
-    
+
     // Filter by cost center
     if (costCenterFilter === "none") {
       filtered = filtered.filter(
         (member) => !membersWithCostCenter.has(member.login)
       );
     }
-    
+
     return filtered;
   }, [fetchedMembers, teamFilter, costCenterFilter, membersWithCostCenter]);
 

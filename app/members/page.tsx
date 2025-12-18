@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useMembers, useTeams, type MemberRole } from "@/lib/hooks";
+import { useMembers, useTeams, useCostCenters, type MemberRole } from "@/lib/hooks";
 
 const ROLE_OPTIONS = [
   { label: "All members", value: "all" },
@@ -28,9 +28,13 @@ export default function MembersPage() {
   const { isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [roleFilter, setRoleFilter] = useState<MemberRole>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
+  const [costCenterFilter, setCostCenterFilter] = useState<string>("all");
 
   // Fetch teams for the filter dropdown
   const { data: teams = [] } = useTeams();
+  
+  // Fetch active cost centers
+  const { data: costCenters = [] } = useCostCenters({ state: "active" });
 
   // Fetch members with filters
   // For "none" team filter, we fetch all members and filter client-side
@@ -43,15 +47,39 @@ export default function MembersPage() {
     team: teamFilter !== "all" && teamFilter !== "none" ? teamFilter : undefined,
   });
 
-  // If filtering for "no team", filter client-side
+  // Build a set of member logins that have cost centers (User resources)
+  const membersWithCostCenter = useMemo(() => {
+    const logins = new Set<string>();
+    costCenters.forEach((cc) => {
+      cc.resources.forEach((resource) => {
+        if (resource.type === "User") {
+          logins.add(resource.name);
+        }
+      });
+    });
+    return logins;
+  }, [costCenters]);
+
+  // If filtering for "no team" or "no cost center", filter client-side
   const members = useMemo(() => {
+    let filtered = fetchedMembers;
+    
+    // Filter by team
     if (teamFilter === "none") {
-      return fetchedMembers.filter(
+      filtered = filtered.filter(
         (member) => !member.teams || member.teams.length === 0
       );
     }
-    return fetchedMembers;
-  }, [fetchedMembers, teamFilter]);
+    
+    // Filter by cost center
+    if (costCenterFilter === "none") {
+      filtered = filtered.filter(
+        (member) => !membersWithCostCenter.has(member.login)
+      );
+    }
+    
+    return filtered;
+  }, [fetchedMembers, teamFilter, costCenterFilter, membersWithCostCenter]);
 
   const memberCount = members.length;
 
@@ -59,13 +87,16 @@ export default function MembersPage() {
     if (teamFilter === "none") {
       return "without team";
     }
+    if (costCenterFilter === "none") {
+      return "without cost center";
+    }
     if (teamFilter !== "all") {
       const selectedTeam = teams.find((t) => t.slug === teamFilter);
       return selectedTeam ? `${selectedTeam.name} team` : "filtered";
     }
     if (roleFilter === "all") return "total";
     return roleFilter;
-  }, [roleFilter, teamFilter, teams]);
+  }, [roleFilter, teamFilter, costCenterFilter, teams]);
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -121,6 +152,15 @@ export default function MembersPage() {
                   {team.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={costCenterFilter} onValueChange={setCostCenterFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by cost center" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All cost centers</SelectItem>
+              <SelectItem value="none">No cost center</SelectItem>
             </SelectContent>
           </Select>
           <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as MemberRole)}>

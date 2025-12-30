@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface MemberCardProps {
   member: GitHubMember;
@@ -16,6 +17,8 @@ interface MemberCardProps {
   showMobileActions?: boolean;
   onAdd?: (member: GitHubMember) => void;
   onRemove?: (member: GitHubMember) => void;
+  selectable?: boolean;
+  onSelectionChange?: (member: GitHubMember, selected: boolean) => void;
 }
 
 export default function MemberCard({
@@ -27,19 +30,33 @@ export default function MemberCard({
   showMobileActions = false,
   onAdd,
   onRemove,
+  selectable = false,
+  onSelectionChange,
 }: MemberCardProps) {
   const handleActionClick = (e: React.MouseEvent, actionFn: (member: GitHubMember) => void) => {
     e.stopPropagation();
     actionFn(member);
   };
 
+  const handleCheckboxChange = (checked: boolean) => {
+    onSelectionChange?.(member, checked);
+  };
+
+  const handleCardClick = () => {
+    if (selectable && onSelectionChange) {
+      onSelectionChange(member, !selected);
+    } else if (onClick) {
+      onClick(member);
+    }
+  };
+
   return (
     <Card
-      onClick={onClick ? () => onClick(member) : undefined}
+      onClick={handleCardClick}
       className={[
         "transition-all hover:shadow-md",
-        selected ? "ring-2 ring-primary" : "",
-        onClick ? "cursor-pointer" : "cursor-default",
+        selected ? "ring-2 ring-primary bg-primary/5" : "",
+        onClick || selectable ? "cursor-pointer" : "cursor-default",
         className,
       ]
         .filter(Boolean)
@@ -47,6 +64,14 @@ export default function MemberCard({
     >
       <CardContent className="flex flex-col gap-2 px-3 py-2">
         <div className="flex items-center gap-2">
+          {selectable && (
+            <Checkbox
+              checked={selected}
+              onCheckedChange={handleCheckboxChange}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Select ${member.login}`}
+            />
+          )}
           <Avatar className="h-7 w-7">
             <AvatarImage src={member.avatar_url} alt={`${member.login} avatar`} />
             <AvatarFallback className="text-[10px]">{member.login.slice(0, 2).toUpperCase()}</AvatarFallback>

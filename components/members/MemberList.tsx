@@ -13,12 +13,18 @@ interface MemberListProps {
   members: GitHubMember[];
   error?: string;
   onMemberClick?: (member: GitHubMember) => void;
+  selectable?: boolean;
+  selectedMembers?: Set<string>;
+  onSelectionChange?: (member: GitHubMember, selected: boolean) => void;
 }
 
 export default function MemberList({
   members,
   error,
   onMemberClick,
+  selectable = false,
+  selectedMembers,
+  onSelectionChange,
 }: MemberListProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -63,6 +69,9 @@ export default function MemberList({
               key={member.id}
               member={member}
               onClick={onMemberClick}
+              selectable={selectable}
+              selected={selectedMembers?.has(member.login)}
+              onSelectionChange={onSelectionChange}
             />
           ))}
         </div>

@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Users, Filter, LogIn } from "lucide-react";
 
+import type { GitHubMember } from "@/lib/types/github";
 import MemberList from "@/components/members/MemberList";
+import BulkActionToolbar from "@/components/members/BulkActionToolbar";
 import {
   Select,
   SelectContent,
@@ -29,12 +31,13 @@ export default function MembersPage() {
   const [roleFilter, setRoleFilter] = useState<MemberRole>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [costCenterFilter, setCostCenterFilter] = useState<string>("all");
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
 
   // Fetch teams for the filter dropdown
   const { data: teams = [] } = useTeams();
 
   // Fetch active cost centers
-  const { data: costCenters = [] } = useCostCenters({ state: "active" });
+  const { data: costCenters = [], refetch: refetchCostCenters } = useCostCenters({ state: "active" });
 
   // Fetch members with filters
   // For "none" team filter, we fetch all members and filter client-side
@@ -97,6 +100,53 @@ export default function MembersPage() {
     if (roleFilter === "all") return "total";
     return roleFilter;
   }, [roleFilter, teamFilter, costCenterFilter, teams]);
+
+  // Show bulk actions only when filtering for "no cost center"
+  const showBulkActions = costCenterFilter === "none";
+
+  // Handle member selection
+  const handleSelectionChange = useCallback((member: GitHubMember, selected: boolean) => {
+    setSelectedMembers((prev) => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(member.login);
+      } else {
+        next.delete(member.login);
+      }
+      return next;
+    });
+  }, []);
+
+  // Select all visible members
+  const handleSelectAll = useCallback(() => {
+    setSelectedMembers(new Set(members.map((m) => m.login)));
+  }, [members]);
+
+  // Deselect all members
+  const handleDeselectAll = useCallback(() => {
+    setSelectedMembers(new Set());
+  }, []);
+
+  // Add selected members to a cost center
+  const handleAddToCostCenter = useCallback(async (costCenterId: string) => {
+    const users = Array.from(selectedMembers);
+    if (users.length === 0) return;
+
+    const response = await fetch(`/api/cost-centers/${costCenterId}/resource`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ users }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "Failed to add members to cost center");
+    }
+
+    // Clear selection and refresh cost centers data
+    setSelectedMembers(new Set());
+    refetchCostCenters();
+  }, [selectedMembers, refetchCostCenters]);
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -185,6 +235,17 @@ export default function MembersPage() {
         </Badge>
       </div>
 
+      {showBulkActions && !loading && memberCount > 0 && (
+        <BulkActionToolbar
+          selectedCount={selectedMembers.size}
+          totalCount={memberCount}
+          costCenters={costCenters}
+          onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
+          onAddToCostCenter={handleAddToCostCenter}
+        />
+      )}
+
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 9 }).map((_, i) => (
@@ -194,7 +255,12 @@ export default function MembersPage() {
       ) : error ? (
         <ErrorMessage message={error.message} />
       ) : (
-        <MemberList members={members} />
+        <MemberList
+          members={members}
+          selectable={showBulkActions}
+          selectedMembers={selectedMembers}
+          onSelectionChange={handleSelectionChange}
+        />
       )}
     </div>
   );

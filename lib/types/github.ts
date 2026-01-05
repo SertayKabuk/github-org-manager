@@ -184,3 +184,29 @@ export interface EnterpriseMember {
   login: string;
   type: EnterpriseMemberType;
 }
+
+// Invitation tracking types
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'failed';
+
+export interface Invitation {
+  id: number;
+  email: string;
+  github_username: string | null;
+  github_user_id: number | null;
+  status: InvitationStatus;
+  github_invitation_id: number | null;
+  role: string;
+  team_ids: number[] | null;
+  inviter_login: string | null;
+  inviter_id: number | null;
+  invited_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+}
+
+export interface CreateInvitationInput {
+  email: string;
+  role?: 'admin' | 'direct_member' | 'billing_manager';
+  team_ids?: number[];
+}

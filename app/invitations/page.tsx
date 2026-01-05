@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from "react";
-import { Mail, UserPlus, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, LogIn } from "lucide-react";
+import { Mail, UserPlus, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, LogIn, CloudDownload } from "lucide-react";
 
 import type { ApiResponse, Invitation, InvitationStatus, CreateInvitationInput } from "@/lib/types/github";
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,10 @@ export default function InvitationsPage() {
     const [formError, setFormError] = useState<string | null>(null);
     const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
+    // Sync state
+    const [syncing, setSyncing] = useState(false);
+    const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
     const fetchInvitations = useCallback(async () => {
         if (!isAuthenticated) return;
 
@@ -148,6 +152,35 @@ export default function InvitationsPage() {
             setFormError(err instanceof Error ? err.message : "Failed to send invitation");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleSync = async () => {
+        setSyncing(true);
+        setSyncMessage(null);
+
+        try {
+            const response = await fetch("/api/invitations/sync", {
+                method: "POST",
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                setSyncMessage(`Error: ${data.error}`);
+            } else {
+                const { markedAsAccepted, markedAsFailed, pendingInGitHub, failedInGitHub, newFromGitHub } = data.data;
+                setSyncMessage(
+                    `Synced with GitHub: ${pendingInGitHub} pending, ${failedInGitHub} failed. ` +
+                    `Updated: ${markedAsAccepted} accepted, ${markedAsFailed} failed. ` +
+                    `Imported: ${newFromGitHub} new.`
+                );
+                fetchInvitations();
+            }
+        } catch (err) {
+            setSyncMessage(`Error: ${err instanceof Error ? err.message : "Failed to sync"}`);
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -259,12 +292,29 @@ export default function InvitationsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            <Button
+                                variant="outline"
+                                onClick={handleSync}
+                                disabled={syncing}
+                                className="gap-2"
+                            >
+                                <CloudDownload className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
+                                {syncing ? "Syncing..." : "Sync with GitHub"}
+                            </Button>
                             <Button variant="outline" size="icon" onClick={fetchInvitations}>
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
                 </CardHeader>
+                {syncMessage && (
+                    <div className={`mx-6 mb-4 p-3 rounded-md text-sm ${syncMessage.startsWith('Error')
+                        ? 'bg-destructive/10 text-destructive'
+                        : 'bg-green-500/10 text-green-600 dark:text-green-400'
+                        }`}>
+                        {syncMessage}
+                    </div>
+                )}
                 <CardContent>
                     {loading ? (
                         <div className="space-y-2">

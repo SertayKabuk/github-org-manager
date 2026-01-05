@@ -5,8 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
-import { query } from "@/lib/db";
-import type { Invitation } from "@/lib/types/github";
+import * as invitationRepo from "@/lib/repositories/invitation-repository";
 
 // Webhook event types
 interface OrganizationMemberPayload {
@@ -110,23 +109,17 @@ export async function POST(request: NextRequest) {
         try {
             // Try to match by invitation ID first (most reliable)
             if (invitation?.id) {
-                const updateByInvitationId = `
-          UPDATE invitations 
-          SET github_username = $1, github_user_id = $2, status = 'accepted', accepted_at = NOW()
-          WHERE github_invitation_id = $3 AND status = 'pending'
-          RETURNING *
-        `;
-                const result = await query<Invitation>(updateByInvitationId, [
-                    githubUsername,
-                    githubUserId,
+                const result = await invitationRepo.updateWithGitHubUser(
                     invitation.id,
-                ]);
+                    githubUsername,
+                    githubUserId
+                );
 
-                if (result.length > 0) {
+                if (result) {
                     console.log(`Matched invitation by ID: ${invitation.id} -> ${githubUsername}`);
                     return NextResponse.json({
                         message: "Invitation matched and updated",
-                        email: result[0].email,
+                        email: result.email,
                         username: githubUsername,
                     });
                 }
@@ -134,23 +127,17 @@ export async function POST(request: NextRequest) {
 
             // Fallback: Try to match by email from invitation payload
             if (invitation?.email) {
-                const updateByEmail = `
-          UPDATE invitations 
-          SET github_username = $1, github_user_id = $2, status = 'accepted', accepted_at = NOW()
-          WHERE email = $3 AND status = 'pending'
-          RETURNING *
-        `;
-                const result = await query<Invitation>(updateByEmail, [
-                    githubUsername,
-                    githubUserId,
+                const result = await invitationRepo.updateByEmailWithGitHubUser(
                     invitation.email,
-                ]);
+                    githubUsername,
+                    githubUserId
+                );
 
-                if (result.length > 0) {
+                if (result) {
                     console.log(`Matched invitation by email: ${invitation.email} -> ${githubUsername}`);
                     return NextResponse.json({
                         message: "Invitation matched and updated",
-                        email: result[0].email,
+                        email: result.email,
                         username: githubUsername,
                     });
                 }
@@ -176,28 +163,19 @@ export async function POST(request: NextRequest) {
 
         try {
             // Check if we already have this invitation
-            const existing = await query(
-                "SELECT id FROM invitations WHERE github_invitation_id = $1",
-                [invitation.id]
-            );
+            const existing = await invitationRepo.findByGitHubInvitationId(invitation.id);
 
-            if (existing.length === 0 && invitation.email) {
+            if (!existing && invitation.email) {
                 // Store invitation that was created outside this app
-                const insertSql = `
-          INSERT INTO invitations (
-            email, status, github_invitation_id, role, 
-            inviter_login, inviter_id, invited_at, expires_at
-          ) VALUES ($1, 'pending', $2, $3, $4, $5, $6, $6::timestamp + INTERVAL '7 days')
-          RETURNING id
-        `;
-                await query(insertSql, [
-                    invitation.email,
-                    invitation.id,
-                    invitation.role || "direct_member",
-                    invitation.inviter?.login || null,
-                    invitation.inviter?.id || null,
-                    invitation.created_at,
-                ]);
+                await invitationRepo.create({
+                    email: invitation.email,
+                    status: 'pending',
+                    github_invitation_id: invitation.id,
+                    role: invitation.role || "direct_member",
+                    inviter_login: invitation.inviter?.login || null,
+                    inviter_id: invitation.inviter?.id || null,
+                    invited_at: invitation.created_at,
+                });
                 console.log(`Stored external invitation: ${invitation.email}`);
             }
         } catch (error) {

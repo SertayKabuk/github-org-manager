@@ -7,8 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/helpers";
 import { getAuthenticatedOctokit, getOrgName } from "@/lib/octokit";
 import { getUser } from "@/lib/auth/session";
-import { query } from "@/lib/db";
-import type { ApiResponse, Invitation, CreateInvitationInput } from "@/lib/types/github";
+import * as invitationRepo from "@/lib/repositories/invitation-repository";
+import type { ApiResponse, CreateInvitationInput } from "@/lib/types/github";
+import type { InvitationEntity } from "@/lib/entities/invitation";
 
 /**
  * GET /api/invitations
@@ -22,24 +23,14 @@ export async function GET(request: NextRequest) {
 
     try {
         // Update expired invitations first
-        await query(
-            `UPDATE invitations SET status = 'expired' WHERE status = 'pending' AND expires_at < NOW()`
-        );
+        await invitationRepo.markExpired();
 
-        let sql = "SELECT * FROM invitations ORDER BY created_at DESC";
-        const params: string[] = [];
+        const invitations = await invitationRepo.findAll(status || undefined);
 
-        if (status && status !== "all") {
-            sql = "SELECT * FROM invitations WHERE status = $1 ORDER BY created_at DESC";
-            params.push(status);
-        }
-
-        const invitations = await query<Invitation>(sql, params);
-
-        return NextResponse.json<ApiResponse<Invitation[]>>({ data: invitations });
+        return NextResponse.json<ApiResponse<InvitationEntity[]>>({ data: invitations });
     } catch (error) {
         console.error("Error fetching invitations:", error);
-        return NextResponse.json<ApiResponse<Invitation[]>>(
+        return NextResponse.json<ApiResponse<InvitationEntity[]>>(
             { data: [], error: "Failed to fetch invitations" },
             { status: 500 }
         );
@@ -59,8 +50,8 @@ export async function POST(request: NextRequest) {
     try {
         body = await request.json();
     } catch {
-        return NextResponse.json<ApiResponse<Invitation>>(
-            { data: {} as Invitation, error: "Invalid request body" },
+        return NextResponse.json<ApiResponse<InvitationEntity>>(
+            { data: {} as InvitationEntity, error: "Invalid request body" },
             { status: 400 }
         );
     }
@@ -68,8 +59,8 @@ export async function POST(request: NextRequest) {
     const { email, role = "direct_member", team_ids } = body;
 
     if (!email || !email.includes("@")) {
-        return NextResponse.json<ApiResponse<Invitation>>(
-            { data: {} as Invitation, error: "Valid email address is required" },
+        return NextResponse.json<ApiResponse<InvitationEntity>>(
+            { data: {} as InvitationEntity, error: "Valid email address is required" },
             { status: 400 }
         );
     }
@@ -88,27 +79,17 @@ export async function POST(request: NextRequest) {
         });
 
         // Store invitation in database
-        const insertSql = `
-      INSERT INTO invitations (
-        email, status, github_invitation_id, role, team_ids, 
-        inviter_login, inviter_id, invited_at, expires_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW() + INTERVAL '7 days')
-      RETURNING *
-    `;
-
-        const invitations = await query<Invitation>(insertSql, [
+        const invitation = await invitationRepo.create({
             email,
-            "pending",
-            githubInvitation.id,
+            status: "pending",
+            github_invitation_id: githubInvitation.id,
             role,
-            team_ids || null,
-            user?.login || null,
-            user?.id || null,
-        ]);
+            team_ids: team_ids || null,
+            inviter_login: user?.login || null,
+            inviter_id: user?.id || null,
+        });
 
-        const invitation = invitations[0];
-
-        return NextResponse.json<ApiResponse<Invitation>>({ data: invitation }, { status: 201 });
+        return NextResponse.json<ApiResponse<InvitationEntity>>({ data: invitation }, { status: 201 });
     } catch (error) {
         console.error("Error creating invitation:", error);
 
@@ -116,14 +97,14 @@ export async function POST(request: NextRequest) {
 
         // Check if the error is related to an existing invitation
         if (message.includes("already a member") || message.includes("pending invitation")) {
-            return NextResponse.json<ApiResponse<Invitation>>(
-                { data: {} as Invitation, error: "User already has a pending invitation or is a member" },
+            return NextResponse.json<ApiResponse<InvitationEntity>>(
+                { data: {} as InvitationEntity, error: "User already has a pending invitation or is a member" },
                 { status: 409 }
             );
         }
 
-        return NextResponse.json<ApiResponse<Invitation>>(
-            { data: {} as Invitation, error: message },
+        return NextResponse.json<ApiResponse<InvitationEntity>>(
+            { data: {} as InvitationEntity, error: message },
             { status: 500 }
         );
     }

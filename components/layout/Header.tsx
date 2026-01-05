@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/teams", label: "Teams" },
   { href: "/members", label: "Members" },
+  { href: "/invitations", label: "Invitations" },
   { href: "/cost-centers", label: "Cost Centers" },
   { href: "/budgets", label: "Budgets" },
 ];

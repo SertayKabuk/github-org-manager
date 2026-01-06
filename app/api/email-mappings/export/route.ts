@@ -46,7 +46,7 @@ export async function GET() {
 
         // Check for admin access
         const session = await getSession();
-        if (session.loginType !== 'admin') {
+        if (!session.loginType || session.loginType !== 'admin') {
             return NextResponse.json(
                 { error: "Admin access required" },
                 { status: 403 }

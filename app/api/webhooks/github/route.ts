@@ -1,44 +1,64 @@
 /**
  * GitHub Webhook handler for organization member events.
- * This endpoint receives webhooks from GitHub and updates invitation records
- * when users accept invitations to match GitHub username with company email.
+ * This endpoint stores webhooks to the database and returns immediately.
+ * Events are processed asynchronously by the webhook processor service.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
-import * as invitationRepo from "@/lib/repositories/invitation-repository";
+import * as webhookEventRepo from "@/lib/repositories/webhook-event-repository";
+import { requireAuth } from "@/lib/auth/helpers";
+import type { ApiResponse } from "@/lib/types/github";
+import type { WebhookEventEntity } from "@/lib/entities/webhook-event";
 
-// Webhook event types
-interface OrganizationMemberPayload {
-    action: "member_added" | "member_removed" | "member_invited";
-    membership: {
-        role: string;
-        state: string;
-        user: {
-            login: string;
-            id: number;
-            avatar_url: string;
-            type: string;
-        };
-    };
-    organization: {
-        login: string;
-        id: number;
-    };
-    sender: {
-        login: string;
-        id: number;
-    };
-    invitation?: {
-        id: number;
-        email: string;
-        login?: string;
-        role: string;
-        created_at: string;
-        inviter?: {
-            login: string;
-            id: number;
-        };
-    };
+interface PaginatedWebhookResponse {
+    events: WebhookEventEntity[];
+    total: number;
+    limit: number;
+    offset: number;
+}
+
+/**
+ * GET /api/webhooks/github
+ * List webhook events with filtering and pagination (requires auth)
+ */
+export async function GET(request: NextRequest) {
+    const authError = await requireAuth();
+    if (authError) return authError;
+
+    const searchParams = request.nextUrl.searchParams;
+    const status = searchParams.get("status") || undefined;
+    const eventType = searchParams.get("eventType") || undefined;
+    const action = searchParams.get("action") || undefined;
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
+    const offset = parseInt(searchParams.get("offset") || "0", 10);
+
+    try {
+        const result = await webhookEventRepo.findAllPaginated({
+            status,
+            eventType,
+            action,
+            limit: Math.min(limit, 100), // Cap at 100
+            offset,
+        });
+
+        return NextResponse.json<ApiResponse<PaginatedWebhookResponse>>({
+            data: {
+                events: result.data,
+                total: result.total,
+                limit: result.limit,
+                offset: result.offset,
+            },
+        });
+    } catch (error) {
+        console.error("Error fetching webhook events:", error);
+        return NextResponse.json<ApiResponse<PaginatedWebhookResponse>>(
+            {
+                data: { events: [], total: 0, limit, offset },
+                error: "Failed to fetch webhook events",
+            },
+            { status: 500 }
+        );
+    }
 }
 
 /**
@@ -63,7 +83,8 @@ function verifySignature(payload: string, signature: string, secret: string): bo
 
 /**
  * POST /api/webhooks/github
- * Handle GitHub organization member webhooks
+ * Store GitHub webhook events to database for async processing.
+ * Returns 200 immediately after storing - does NOT process the event.
  */
 export async function POST(request: NextRequest) {
     const webhookSecret = process.env.WEBHOOK_SECRET;
@@ -86,104 +107,44 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse payload
-    let data: OrganizationMemberPayload;
+    let data: Record<string, unknown>;
     try {
         data = JSON.parse(payload);
     } catch {
         return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
 
-    console.log(`Received webhook: ${event}.${data.action}`, { deliveryId });
+    const action = typeof data.action === "string" ? data.action : null;
 
-    // Only process organization member events
-    if (event !== "organization") {
-        return NextResponse.json({ message: "Event ignored" }, { status: 200 });
-    }
+    console.log(`Received webhook: ${event}.${action}`, { deliveryId });
 
-    // Handle member_added action - this is when the invitation is accepted
-    if (data.action === "member_added") {
-        const { membership, invitation } = data;
-        const githubUsername = membership.user.login;
-        const githubUserId = membership.user.id;
-
-        try {
-            // Try to match by invitation ID first (most reliable)
-            if (invitation?.id) {
-                const result = await invitationRepo.updateWithGitHubUser(
-                    invitation.id,
-                    githubUsername,
-                    githubUserId
-                );
-
-                if (result) {
-                    console.log(`Matched invitation by ID: ${invitation.id} -> ${githubUsername}`);
-                    return NextResponse.json({
-                        message: "Invitation matched and updated",
-                        email: result.email,
-                        username: githubUsername,
-                    });
-                }
-            }
-
-            // Fallback: Try to match by email from invitation payload
-            if (invitation?.email) {
-                const result = await invitationRepo.updateByEmailWithGitHubUser(
-                    invitation.email,
-                    githubUsername,
-                    githubUserId
-                );
-
-                if (result) {
-                    console.log(`Matched invitation by email: ${invitation.email} -> ${githubUsername}`);
-                    return NextResponse.json({
-                        message: "Invitation matched and updated",
-                        email: result.email,
-                        username: githubUsername,
-                    });
-                }
-            }
-
-            console.log(`No matching pending invitation found for ${githubUsername}`);
-            return NextResponse.json({
-                message: "No matching invitation found",
-                username: githubUsername,
-            });
-        } catch (error) {
-            console.error("Error updating invitation:", error);
-            return NextResponse.json(
-                { error: "Failed to update invitation" },
-                { status: 500 }
-            );
+    // Check for duplicate delivery (idempotency)
+    try {
+        const existing = await webhookEventRepo.findByDeliveryId(deliveryId);
+        if (existing) {
+            console.log(`Duplicate webhook delivery ignored: ${deliveryId}`);
+            return NextResponse.json({ message: "Duplicate delivery ignored" }, { status: 200 });
         }
+    } catch (error) {
+        console.error("Error checking for duplicate delivery:", error);
+        // Continue - better to potentially duplicate than lose the event
     }
 
-    // Handle member_invited action - store the invitation if not already tracked
-    if (data.action === "member_invited" && data.invitation) {
-        const { invitation } = data;
-
-        try {
-            // Check if we already have this invitation
-            const existing = await invitationRepo.findByGitHubInvitationId(invitation.id);
-
-            if (!existing && invitation.email) {
-                // Store invitation that was created outside this app
-                await invitationRepo.create({
-                    email: invitation.email,
-                    status: 'pending',
-                    github_invitation_id: invitation.id,
-                    role: invitation.role || "direct_member",
-                    inviter_login: invitation.inviter?.login || null,
-                    inviter_id: invitation.inviter?.id || null,
-                    invited_at: invitation.created_at,
-                });
-                console.log(`Stored external invitation: ${invitation.email}`);
-            }
-        } catch (error) {
-            console.error("Error storing external invitation:", error);
-        }
-
-        return NextResponse.json({ message: "Invitation tracked" });
+    // Store webhook event to database
+    try {
+        const webhookEvent = await webhookEventRepo.create({
+            delivery_id: deliveryId,
+            event_type: event,
+            action,
+            payload: data,
+        });
+        console.log(`Stored webhook event: ${webhookEvent.id}`);
+    } catch (error) {
+        console.error("Failed to store webhook event:", error);
+        // Return 500 so GitHub can retry
+        return NextResponse.json({ error: "Failed to store event" }, { status: 500 });
     }
 
-    return NextResponse.json({ message: "Event processed" }, { status: 200 });
+    // Return 200 immediately - processing happens asynchronously
+    return NextResponse.json({ message: "Event queued" }, { status: 200 });
 }

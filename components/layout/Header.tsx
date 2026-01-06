@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/invitations", label: "Invitations" },
   { href: "/cost-centers", label: "Cost Centers" },
   { href: "/budgets", label: "Budgets" },
+  { href: "/webhooks", label: "Webhooks" },
 ];
 
 export default function Header() {

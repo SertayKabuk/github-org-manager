@@ -43,3 +43,30 @@ export function getEnterpriseName(): string {
 
   return enterprise;
 }
+
+/**
+ * Creates an Octokit instance with system token from environment.
+ * Use this for background operations (webhooks, cron jobs) where no user session exists.
+ * Requires GITHUB_SYSTEM_TOKEN environment variable (PAT with admin:enterprise scope).
+ */
+export function getSystemOctokit(): Octokit {
+  const token = process.env.GITHUB_SYSTEM_TOKEN;
+
+  if (!token) {
+    throw new Error(
+      "Missing GITHUB_SYSTEM_TOKEN environment variable. Required for webhook processing."
+    );
+  }
+
+  return new Octokit({
+    auth: token,
+    userAgent: "github-org-manager/1.0.0",
+  });
+}
+
+/**
+ * Returns the default cost center ID for new members or null if not configured.
+ */
+export function getDefaultCostCenterId(): string | null {
+  return process.env.DEFAULT_COST_CENTER_ID || null;
+}

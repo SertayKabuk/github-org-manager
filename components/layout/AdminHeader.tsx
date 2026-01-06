@@ -21,21 +21,11 @@ const NAV_ITEMS = [
 
 export default function AdminHeader() {
     const pathname = usePathname();
-    const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "GitHub Org Manager";
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     return (
         <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-                <Link href="/admin" className="flex items-center gap-2 text-base font-semibold">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                        <Github className="h-5 w-5" />
-                    </span>
-                    <span className="hidden sm:inline-block">{appName}</span>
-                    <span className="ml-2 inline-flex items-center rounded-md bg-orange-500/10 px-2 py-1 text-xs font-medium text-orange-500 ring-1 ring-inset ring-orange-500/20">
-                        Admin
-                    </span>
-                </Link>
                 <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
                     {NAV_ITEMS.map((item) => {
                         const isActive =
@@ -65,8 +55,6 @@ export default function AdminHeader() {
                     >
                         {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
                     </button>
-                    <AuthButton />
-                    <ThemeToggle />
                 </div>
             </div>
             {isMobileMenuOpen && (

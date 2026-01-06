@@ -120,23 +120,6 @@ export default function AdminDashboard() {
                         </p>
                     </CardContent>
                 </Card>
-
-                <Link href="/admin/email-mappings">
-                    <Card className="border-l-4 border-l-orange-500 bg-gradient-to-br from-orange-50 to-background dark:from-orange-950/20 dark:to-background hover:shadow-md transition-shadow cursor-pointer">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Email Mappings
-                            </CardTitle>
-                            <Mail className="h-4 w-4 text-orange-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-sm font-medium text-orange-600">View All →</div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                User email verifications
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
             </div>
 
             {/* Quick Actions */}

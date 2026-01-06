@@ -4,7 +4,7 @@
  * GET - List all invitations from database
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import { getAuthenticatedOctokit, getOrgName } from "@/lib/octokit";
 import { getUser } from "@/lib/auth/session";
 import * as invitationRepo from "@/lib/repositories/invitation-repository";
@@ -16,7 +16,7 @@ import type { InvitationEntity } from "@/lib/entities/invitation";
  * List all invitations with optional status filter
  */
 export async function GET(request: NextRequest) {
-    const authError = await requireAuth();
+    const authError = await requireAdmin();
     if (authError) return authError;
 
     const status = request.nextUrl.searchParams.get("status");
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
  * Create a new invitation and send via GitHub API
  */
 export async function POST(request: NextRequest) {
-    const authError = await requireAuth();
+    const authError = await requireAdmin();
     if (authError) return authError;
 
     let body: CreateInvitationInput;

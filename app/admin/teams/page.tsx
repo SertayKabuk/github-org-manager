@@ -17,7 +17,6 @@ import { useTeams } from "@/lib/hooks";
 import type { GitHubTeam } from "@/lib/types/github";
 
 export default function TeamsPage() {
-  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
@@ -41,36 +40,6 @@ export default function TeamsPage() {
     );
   }, [teams, searchQuery]);
 
-  // Show loading while checking authentication
-  if (authLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-40" />
-          <Skeleton className="h-40" />
-          <Skeleton className="h-40" />
-        </div>
-      </div>
-    );
-  }
-
-  // Show login prompt if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <Layers className="h-16 w-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Authentication Required</h2>
-        <p className="text-muted-foreground mb-6 max-w-md">
-          Please sign in with your GitHub account to view and manage teams.
-        </p>
-        <Button onClick={() => login()} size="lg">
-          <LogIn className="mr-2 h-5 w-5" />
-          Login with GitHub
-        </Button>
-      </div>
-    );
-  }
 
   const handleDeleteTeam = async (team: GitHubTeam) => {
     const confirmed = window.confirm(`Delete team "${team.name}"? This action cannot be undone.`);
@@ -102,7 +71,7 @@ export default function TeamsPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href="/teams/new">
+          <Link href="/admin/teams/new">
             <Plus className="mr-2 h-4 w-4" />
             Create Team
           </Link>
@@ -133,7 +102,7 @@ export default function TeamsPage() {
       ) : (
         <TeamList
           teams={filteredTeams}
-          onTeamClick={(team) => router.push(`/teams/${team.slug}`)}
+          onTeamClick={(team) => router.push(`/admin/teams/${team.slug}`)}
           onDeleteTeam={handleDeleteTeam}
         />
       )}

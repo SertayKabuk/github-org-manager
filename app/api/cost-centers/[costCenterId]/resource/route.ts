@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type {
   ApiResponse,
   AddResourceToCostCenterInput,
@@ -23,7 +23,7 @@ export async function POST(
   { params }: { params: Promise<{ costCenterId: string }> }
 ) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const { costCenterId } = await params;
@@ -89,7 +89,7 @@ export async function DELETE(
   { params }: { params: Promise<{ costCenterId: string }> }
 ) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const { costCenterId } = await params;

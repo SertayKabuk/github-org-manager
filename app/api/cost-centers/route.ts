@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, CostCenter, CreateCostCenterInput, CostCenterState } from "@/lib/types/github";
 
 const STATE_FILTERS = new Set(["active", "deleted"] as const);
 
 export async function GET(request: NextRequest) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const stateParam = request.nextUrl.searchParams.get("state") as CostCenterState | null;
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   let body: CreateCostCenterInput;

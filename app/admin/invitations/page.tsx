@@ -79,7 +79,7 @@ function formatDate(dateString: string | null): string {
 }
 
 export default function InvitationsPage() {
-    const { isAuthenticated, isLoading: authLoading, login } = useAuth();
+    const { isAuthenticated } = useAuth();
     const [invitations, setInvitations] = useState<Invitation[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -184,32 +184,6 @@ export default function InvitationsPage() {
         }
     };
 
-    // Show loading while checking authentication
-    if (authLoading) {
-        return (
-            <div className="space-y-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-64" />
-            </div>
-        );
-    }
-
-    // Show login prompt if not authenticated
-    if (!isAuthenticated) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-                <Mail className="h-16 w-16 text-muted-foreground mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Authentication Required</h2>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                    Please sign in with your GitHub account to manage organization invitations.
-                </p>
-                <Button onClick={() => login()} size="lg">
-                    <LogIn className="mr-2 h-5 w-5" />
-                    Login with GitHub
-                </Button>
-            </div>
-        );
-    }
 
     return (
         <div className="space-y-6">

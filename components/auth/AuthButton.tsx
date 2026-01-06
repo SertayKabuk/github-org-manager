@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogIn, LogOut } from "lucide-react";
 
 export function AuthButton() {
-  const { user, isAuthenticated, isLoading, login, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, userLogin, logout } = useAuth();
 
   if (isLoading) {
     return (
@@ -18,7 +18,7 @@ export function AuthButton() {
 
   if (!isAuthenticated) {
     return (
-      <Button onClick={() => login()} variant="default">
+      <Button onClick={() => userLogin()} variant="default">
         <LogIn className="mr-2 h-4 w-4" />
         Login with GitHub
       </Button>

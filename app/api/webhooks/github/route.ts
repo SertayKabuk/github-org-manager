@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import * as webhookEventRepo from "@/lib/repositories/webhook-event-repository";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse } from "@/lib/types/github";
 import type { WebhookEventEntity } from "@/lib/entities/webhook-event";
 
@@ -22,7 +22,7 @@ interface PaginatedWebhookResponse {
  * List webhook events with filtering and pagination (requires auth)
  */
 export async function GET(request: NextRequest) {
-    const authError = await requireAuth();
+    const authError = await requireAdmin();
     if (authError) return authError;
 
     const searchParams = request.nextUrl.searchParams;

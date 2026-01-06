@@ -44,3 +44,19 @@ CREATE INDEX IF NOT EXISTS idx_webhook_events_delivery_id ON webhook_events(deli
 CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_event_type ON webhook_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_created_at ON webhook_events(created_at);
+
+-- Email mappings table for storing GitHub username to email associations
+-- Collected when users login with their GitHub accounts
+CREATE TABLE IF NOT EXISTS email_mappings (
+  id SERIAL PRIMARY KEY,
+  github_username VARCHAR(255) NOT NULL,
+  github_user_id INTEGER NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  is_primary BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for email mappings
+CREATE INDEX IF NOT EXISTS idx_email_mappings_email ON email_mappings(email);
+CREATE INDEX IF NOT EXISTS idx_email_mappings_github_username ON email_mappings(github_username);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_email_mappings_unique ON email_mappings(github_user_id, email);

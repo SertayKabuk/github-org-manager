@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, CreateTeamInput, GitHubTeam } from "@/lib/types/github";
 
 import { mapTeam } from "./transformers";
@@ -10,7 +10,7 @@ const PRIVACY_OPTIONS: ReadonlySet<string> = new Set(["closed", "secret"]);
 
 export async function GET() {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   try {
@@ -55,7 +55,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   let body: CreateTeamInput;

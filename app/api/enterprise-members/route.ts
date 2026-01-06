@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, EnterpriseMember } from "@/lib/types/github";
 
 interface EnterpriseGraphQLResponse {
@@ -46,7 +46,7 @@ const ENTERPRISE_MEMBERS_QUERY = `
 
 export async function GET() {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   try {

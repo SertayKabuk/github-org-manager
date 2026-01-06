@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubTeam } from "@/lib/types/github";
 
 import { mapTeam } from "../transformers";
@@ -51,7 +51,7 @@ async function resolveTeamSlug(request: NextRequest, context: RouteContext): Pro
 
 export async function GET(request: NextRequest, context: RouteContext) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const teamSlug = await resolveTeamSlug(request, context);
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const teamSlug = await resolveTeamSlug(request, context);
@@ -150,7 +150,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const teamSlug = await resolveTeamSlug(request, context);

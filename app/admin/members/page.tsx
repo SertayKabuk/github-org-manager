@@ -27,7 +27,6 @@ const ROLE_OPTIONS = [
 ];
 
 export default function MembersPage() {
-  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [roleFilter, setRoleFilter] = useState<MemberRole>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [costCenterFilter, setCostCenterFilter] = useState<string>("all");
@@ -148,36 +147,6 @@ export default function MembersPage() {
     refetchCostCenters();
   }, [selectedMembers, refetchCostCenters]);
 
-  // Show loading while checking authentication
-  if (authLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-        </div>
-      </div>
-    );
-  }
-
-  // Show login prompt if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <Users className="h-16 w-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Authentication Required</h2>
-        <p className="text-muted-foreground mb-6 max-w-md">
-          Please sign in with your GitHub account to view organization members.
-        </p>
-        <Button onClick={() => login()} size="lg">
-          <LogIn className="mr-2 h-5 w-5" />
-          Login with GitHub
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

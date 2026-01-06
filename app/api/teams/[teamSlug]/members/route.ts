@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubMember } from "@/lib/types/github";
 
 type RouteParams = Promise<{ teamSlug?: string }>;
@@ -61,7 +61,7 @@ function mapMember(member: OctokitTeamMemberPayload): GitHubMember {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const teamSlug = await resolveTeamSlug(request, context);
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const teamSlug = await resolveTeamSlug(request, context);
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const teamSlug = await resolveTeamSlug(request, context);
@@ -221,7 +221,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       username,
     });
 
-  return NextResponse.json<ApiResponse<null>>({ data: null }, { status: 200 });
+    return NextResponse.json<ApiResponse<null>>({ data: null }, { status: 200 });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected error removing team member.";

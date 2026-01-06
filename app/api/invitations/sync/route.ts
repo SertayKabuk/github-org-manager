@@ -3,7 +3,7 @@
  * POST - Fetch pending/failed invitations from GitHub and sync with database
  */
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import { getAuthenticatedOctokit, getOrgName } from "@/lib/octokit";
 import * as invitationRepo from "@/lib/repositories/invitation-repository";
 import type { ApiResponse } from "@/lib/types/github";
@@ -21,7 +21,7 @@ interface SyncResult {
  * Sync pending and failed invitations from GitHub with the database
  */
 export async function POST() {
-    const authError = await requireAuth();
+    const authError = await requireAdmin();
     if (authError) return authError;
 
     try {

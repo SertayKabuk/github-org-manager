@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, BillingUsageSummary } from "@/lib/types/github";
 
 export async function GET(request: NextRequest) {
     // Check authentication
-    const authError = await requireAuth();
+    const authError = await requireAdmin();
     if (authError) return authError;
 
     const cost_center_id = request.nextUrl.searchParams.get("costCenterId");

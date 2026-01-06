@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse } from "@/lib/types/github";
 
 interface Organization {
@@ -14,7 +14,7 @@ interface Organization {
 
 export async function GET(request: NextRequest) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const searchQuery = request.nextUrl.searchParams.get("q");

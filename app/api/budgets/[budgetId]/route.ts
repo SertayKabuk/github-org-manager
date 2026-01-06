@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, BudgetDeleteResult } from "@/lib/types/github";
 
 type DeleteBudgetParams = Promise<{ budgetId: string }>;
@@ -20,7 +20,7 @@ export async function DELETE(
   _request: NextRequest,
   context: DeleteBudgetContext
 ) {
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const params = await context.params;

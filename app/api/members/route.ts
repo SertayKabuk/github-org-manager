@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubMember } from "@/lib/types/github";
 
 const ROLE_FILTERS = new Set(["all", "admin", "member"] as const);
@@ -10,7 +10,7 @@ type RoleFilter = "all" | "admin" | "member";
 
 export async function GET(request: NextRequest) {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   const roleParam = (request.nextUrl.searchParams.get("role") || "all") as RoleFilter;

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { getOrgName, getAuthenticatedOctokit } from "@/lib/octokit";
-import { requireAuth } from "@/lib/auth/helpers";
+import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, GitHubOrganization } from "@/lib/types/github";
 
 export async function GET() {
   // Check authentication
-  const authError = await requireAuth();
+  const authError = await requireAdmin();
   if (authError) return authError;
 
   try {

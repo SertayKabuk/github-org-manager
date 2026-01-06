@@ -9,11 +9,17 @@ interface User {
   name: string | null;
 }
 
+type LoginType = 'admin' | 'user' | null;
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (returnTo?: string) => void;
+  scopes: string[];
+  loginType: LoginType;
+  isAdmin: boolean;
+  adminLogin: (returnTo?: string) => void;
+  userLogin: (returnTo?: string) => void;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
@@ -23,20 +29,28 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [scopes, setScopes] = useState<string[]>([]);
+  const [loginType, setLoginType] = useState<LoginType>(null);
 
   const fetchAuthStatus = async () => {
     try {
       const response = await fetch("/api/auth/github/me");
       const data = await response.json();
-      
+
       if (data.authenticated && data.user) {
         setUser(data.user);
+        setScopes(data.scopes || []);
+        setLoginType(data.loginType || null);
       } else {
         setUser(null);
+        setScopes([]);
+        setLoginType(null);
       }
     } catch (error) {
       console.error("Failed to fetch auth status:", error);
       setUser(null);
+      setScopes([]);
+      setLoginType(null);
     } finally {
       setIsLoading(false);
     }
@@ -46,18 +60,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchAuthStatus();
   }, []);
 
-  const login = (returnTo?: string) => {
+  const adminLogin = (returnTo?: string) => {
     const params = new URLSearchParams();
     if (returnTo) {
       params.set("returnTo", returnTo);
     }
-    window.location.href = `/api/auth/github/login${params.toString() ? `?${params.toString()}` : ""}`;
+    window.location.href = `/api/auth/github/admin/login${params.toString() ? `?${params.toString()}` : ""}`;
+  };
+
+  const userLogin = (returnTo?: string) => {
+    const params = new URLSearchParams();
+    if (returnTo) {
+      params.set("returnTo", returnTo);
+    }
+    window.location.href = `/api/auth/github/user/login${params.toString() ? `?${params.toString()}` : ""}`;
   };
 
   const logout = async () => {
     try {
       await fetch("/api/auth/github/logout", { method: "POST" });
       setUser(null);
+      setScopes([]);
+      setLoginType(null);
       window.location.href = "/";
     } catch (error) {
       console.error("Logout failed:", error);
@@ -69,13 +93,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await fetchAuthStatus();
   };
 
+  const isAdmin = loginType === 'admin' || scopes.includes('admin:org');
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
         isLoading,
-        login,
+        scopes,
+        loginType,
+        isAdmin,
+        adminLogin,
+        userLogin,
         logout,
         refreshAuth,
       }}

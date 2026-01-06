@@ -14,6 +14,8 @@ export interface SessionData {
     name: string | null;
   };
   expiresAt?: string;
+  scopes?: string[];
+  loginType?: 'admin' | 'user';
 }
 
 /**
@@ -22,19 +24,19 @@ export interface SessionData {
  */
 function getSessionConfig() {
   const password = process.env.SESSION_SECRET;
-  
+
   if (!password) {
     throw new Error(
       "Missing SESSION_SECRET environment variable. Generate a 32+ character random string."
     );
   }
-  
+
   if (password.length < 32) {
     throw new Error(
       "SESSION_SECRET must be at least 32 characters long for security."
     );
   }
-  
+
   return {
     password,
     cookieName: "github_org_manager_session",
@@ -70,11 +72,11 @@ export async function isAuthenticated(): Promise<boolean> {
  */
 export async function getToken(): Promise<string> {
   const session = await getSession();
-  
+
   if (!session.token) {
     throw new Error("Not authenticated. Please login with GitHub.");
   }
-  
+
   return session.token;
 }
 
@@ -92,16 +94,26 @@ export async function getUser() {
 export async function saveSession(
   token: string,
   user: SessionData["user"],
-  expiresAt?: string
+  options?: {
+    expiresAt?: string;
+    scopes?: string[];
+    loginType?: 'admin' | 'user';
+  }
 ): Promise<void> {
   const session = await getSession();
   session.token = token;
   session.user = user;
-  
-  if (expiresAt) {
-    session.expiresAt = expiresAt;
+
+  if (options?.expiresAt) {
+    session.expiresAt = options.expiresAt;
   }
-  
+  if (options?.scopes) {
+    session.scopes = options.scopes;
+  }
+  if (options?.loginType) {
+    session.loginType = options.loginType;
+  }
+
   await session.save();
 }
 

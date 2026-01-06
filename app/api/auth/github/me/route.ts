@@ -1,25 +1,30 @@
 /**
  * Authentication status endpoint.
- * Returns current user data if authenticated.
+ * Returns current user data, scopes, and login type if authenticated.
  */
 import { NextResponse } from "next/server";
-import { getUser, isAuthenticated } from "@/lib/auth/session";
+import { getSession, isAuthenticated } from "@/lib/auth/session";
 
 export async function GET() {
   try {
     const authenticated = await isAuthenticated();
-    
+
     if (!authenticated) {
       return NextResponse.json(
-        { authenticated: false, user: null },
+        { authenticated: false, user: null, scopes: null, loginType: null },
         { status: 200 }
       );
     }
-    
-    const user = await getUser();
-    
+
+    const session = await getSession();
+
     return NextResponse.json(
-      { authenticated: true, user },
+      {
+        authenticated: true,
+        user: session.user,
+        scopes: session.scopes || [],
+        loginType: session.loginType || null,
+      },
       { status: 200 }
     );
   } catch (error) {

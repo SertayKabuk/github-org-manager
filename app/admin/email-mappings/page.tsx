@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { Search, Mail, Github, Calendar } from "lucide-react";
+import { Search, Mail, Github, Calendar, Download } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { useQuery } from "@tanstack/react-query";
 
@@ -43,6 +44,7 @@ async function fetchEmailMappings(search?: string): Promise<EmailMapping[]> {
 export default function EmailMappingsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [isExporting, setIsExporting] = useState(false);
 
     // Debounce search
     const handleSearch = (value: string) => {
@@ -51,6 +53,43 @@ export default function EmailMappingsPage() {
         setTimeout(() => {
             setDebouncedSearch(value);
         }, 300);
+    };
+
+    // Handle CSV export
+    const handleExport = async () => {
+        setIsExporting(true);
+        try {
+            const response = await fetch("/api/email-mappings/export");
+            if (!response.ok) {
+                throw new Error("Failed to export email mappings");
+            }
+            
+            // Get the filename from the Content-Disposition header
+            const contentDisposition = response.headers.get("Content-Disposition");
+            let filename = "email-mappings.csv";
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="(.+)"/);
+                if (match) {
+                    filename = match[1];
+                }
+            }
+            
+            // Create a blob from the response and trigger download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error("Error exporting email mappings:", error);
+            alert("Failed to export email mappings. Please try again.");
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const {
@@ -98,15 +137,28 @@ export default function EmailMappingsPage() {
             {/* Results */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <Mail className="h-5 w-5" />
-                        Mappings
-                        {!isLoading && (
-                            <Badge variant="secondary" className="ml-2">
-                                {mappings.length} records
-                            </Badge>
-                        )}
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Mail className="h-5 w-5" />
+                                Mappings
+                                {!isLoading && (
+                                    <Badge variant="secondary" className="ml-2">
+                                        {mappings.length} records
+                                    </Badge>
+                                )}
+                            </CardTitle>
+                        </div>
+                        <Button
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            variant="outline"
+                            size="sm"
+                        >
+                            <Download className="h-4 w-4" />
+                            {isExporting ? "Exporting..." : "Export CSV"}
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (

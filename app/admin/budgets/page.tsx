@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBudgets, useCostCenters } from "@/lib/hooks";
-import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, CreateBudgetInput, BudgetScope } from "@/lib/types/github";
+import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, CreateBudgetInput, BudgetScope, BillingUsageItem } from "@/lib/types/github";
+import { SkuName } from "@/lib/types/github";
 
 type BudgetCreationResponse = ApiResponse<BudgetCreateResult>;
 type BudgetDeleteResponse = ApiResponse<BudgetDeleteResult>;
@@ -79,9 +80,11 @@ export default function BudgetsPage() {
         }
 
         const json = await response.json();
-        const usageItems = json.data?.usageItems || [];
+        const usageItems = json.data?.usageItems as BillingUsageItem[] || [];
 
-        const totalSpent = usageItems.reduce(
+        const premiumRequestUsageItem = usageItems.filter(item => item.sku === SkuName.copilot_premium_request);
+
+        const totalSpent = premiumRequestUsageItem.reduce(
           (sum: number, item: { netAmount?: number }) => sum + (item.netAmount || 0),
           0
         );

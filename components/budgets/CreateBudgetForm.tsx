@@ -10,6 +10,7 @@ import type {
   CreateBudgetInput,
   CostCenter,
 } from "@/lib/types/github";
+import { SkuName } from "@/lib/types/github";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -44,13 +45,13 @@ const PRODUCT_PRICING_SKUS = [
 ] as const;
 
 const SKU_PRICING_SKUS = [
-  { value: "copilot_agent_premium_request", label: "Copilot Agent Premium Request" },
-  { value: "copilot_enterprise", label: "Copilot Enterprise" },
-  { value: "copilot_for_business", label: "Copilot for Business" },
-  { value: "copilot_premium_request", label: "Copilot Premium Request" },
-  { value: "copilot_standalone", label: "Copilot Standalone" },
-  { value: "models_inference", label: "Models Inference" },
-  { value: "spark_premium_request", label: "Spark Premium Request" },
+  { value: SkuName.copilot_agent_premium_request, label: "Copilot Agent Premium Request" },
+  { value: SkuName.copilot_enterprise, label: "Copilot Enterprise" },
+  { value: SkuName.copilot_for_business, label: "Copilot for Business" },
+  { value: SkuName.copilot_premium_request, label: "Copilot Premium Request" },
+  { value: SkuName.copilot_standalone, label: "Copilot Standalone" },
+  { value: SkuName.models_inference, label: "Models Inference" },
+  { value: SkuName.spark_premium_request, label: "Spark Premium Request" },
 ] as const;
 
 const BUNDLE_PRICING_SKUS = [

@@ -145,6 +145,16 @@ export interface BudgetDeleteResult {
   id: string;
 }
 
+export enum SkuName {
+  copilot_agent_premium_request = "copilot_agent_premium_request",
+  copilot_enterprise = "copilot_enterprise",
+  copilot_for_business = "copilot_for_business",
+  copilot_premium_request = "copilot_premium_request",
+  copilot_standalone = "copilot_standalone",
+  spark_premium_request = "spark_premium_request",
+  models_inference = "models_inference",
+}
+
 // Billing usage summary types
 export interface BillingTimePeriod {
   year: number;

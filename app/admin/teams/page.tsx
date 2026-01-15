@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Plus, Search, LogIn, Layers } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import TeamList from "@/components/teams/TeamList";
@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorMessage from "@/components/ui/ErrorMessage";
-import { useAuth } from "@/components/auth/AuthProvider";
 import { useTeams } from "@/lib/hooks";
 
 import type { GitHubTeam } from "@/lib/types/github";

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CheckSquare, Square, X, Loader2 } from "lucide-react";
 
-import type { CostCenter } from "@/lib/types/github";
+import type { CostCenter, GitHubTeam } from "@/lib/types/github";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,27 +18,32 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface BulkActionToolbarProps {
   selectedCount: number;
   totalCount: number;
-  costCenters: CostCenter[];
+  costCenters?: CostCenter[];
+  teams?: GitHubTeam[];
   onSelectAll: () => void;
   onDeselectAll: () => void;
-  onAddToCostCenter: (costCenterId: string) => Promise<void>;
+  onAddToCostCenter?: (costCenterId: string) => Promise<void>;
+  onAddToTeam?: (teamSlug: string) => Promise<void>;
 }
 
 export default function BulkActionToolbar({
   selectedCount,
   totalCount,
-  costCenters,
+  costCenters = [],
+  teams = [],
   onSelectAll,
   onDeselectAll,
   onAddToCostCenter,
+  onAddToTeam,
 }: BulkActionToolbarProps) {
   const [selectedCostCenter, setSelectedCostCenter] = useState<string>("");
+  const [selectedTeam, setSelectedTeam] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const handleAddToCostCenter = async () => {
-    if (!selectedCostCenter || selectedCount === 0) return;
+    if (!selectedCostCenter || selectedCount === 0 || !onAddToCostCenter) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -51,6 +56,25 @@ export default function BulkActionToolbar({
       setSelectedCostCenter("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add members to cost center");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddToTeam = async () => {
+    if (!selectedTeam || selectedCount === 0 || !onAddToTeam) return;
+
+    setIsSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await onAddToTeam(selectedTeam);
+      const teamName = teams.find(t => t.slug === selectedTeam)?.name;
+      setSuccess(`Successfully added ${selectedCount} member${selectedCount > 1 ? 's' : ''} to ${teamName}`);
+      setSelectedTeam("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add members to team");
     } finally {
       setIsSubmitting(false);
     }
@@ -103,35 +127,72 @@ export default function BulkActionToolbar({
           <>
             <div className="h-6 w-px bg-border" />
 
-            <div className="flex items-center gap-2">
-              <Select value={selectedCostCenter} onValueChange={setSelectedCostCenter}>
-                <SelectTrigger className="w-[200px] h-8">
-                  <SelectValue placeholder="Select cost center" />
-                </SelectTrigger>
-                <SelectContent>
-                  {costCenters.map((cc) => (
-                    <SelectItem key={cc.id} value={cc.id}>
-                      {cc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-2 flex-wrap">
+              {onAddToCostCenter && costCenters.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Select value={selectedCostCenter} onValueChange={setSelectedCostCenter}>
+                    <SelectTrigger className="w-[180px] h-8">
+                      <SelectValue placeholder="Select cost center" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {costCenters.map((cc) => (
+                        <SelectItem key={cc.id} value={cc.id}>
+                          {cc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-              <Button
-                size="sm"
-                onClick={handleAddToCostCenter}
-                disabled={!selectedCostCenter || isSubmitting}
-                className="h-8"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  "Add to cost center"
-                )}
-              </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleAddToCostCenter}
+                    disabled={!selectedCostCenter || isSubmitting}
+                    className="h-8"
+                  >
+                    {isSubmitting && selectedCostCenter ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      "Add to cost center"
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {onAddToTeam && teams.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                    <SelectTrigger className="w-[180px] h-8">
+                      <SelectValue placeholder="Select team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.slug}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    size="sm"
+                    onClick={handleAddToTeam}
+                    disabled={!selectedTeam || isSubmitting}
+                    className="h-8"
+                  >
+                    {isSubmitting && selectedTeam ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      "Add to team"
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </>
         )}

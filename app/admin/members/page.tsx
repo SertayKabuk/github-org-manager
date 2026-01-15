@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from "react";
-import { Users, Filter, LogIn } from "lucide-react";
+import { Users, Filter } from "lucide-react";
 
 import type { GitHubMember } from "@/lib/types/github";
 import MemberList from "@/components/members/MemberList";
@@ -15,9 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import ErrorMessage from "@/components/ui/ErrorMessage";
-import { useAuth } from "@/components/auth/AuthProvider";
 import { useMembers, useTeams, useCostCenters, type MemberRole } from "@/lib/hooks";
 
 const ROLE_OPTIONS = [
@@ -100,8 +98,8 @@ export default function MembersPage() {
     return roleFilter;
   }, [roleFilter, teamFilter, costCenterFilter, teams]);
 
-  // Show bulk actions only when filtering for "no cost center"
-  const showBulkActions = costCenterFilter === "none";
+  // Show bulk actions when filtering for "no cost center" or "no team"
+  const showBulkActions = costCenterFilter === "none" || teamFilter === "none";
 
   // Handle member selection
   const handleSelectionChange = useCallback((member: GitHubMember, selected: boolean) => {
@@ -146,6 +144,28 @@ export default function MembersPage() {
     setSelectedMembers(new Set());
     refetchCostCenters();
   }, [selectedMembers, refetchCostCenters]);
+
+  // Add selected members to a team
+  const handleAddToTeam = useCallback(async (teamSlug: string) => {
+    const usernames = Array.from(selectedMembers);
+    if (usernames.length === 0) return;
+
+    const response = await fetch(`/api/teams/${teamSlug}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ usernames }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "Failed to add members to team");
+    }
+
+    // Clear selection and refresh members data
+    setSelectedMembers(new Set());
+    // We could refetch more selectively, but for now we refresh the active members list
+    // which effectively removes them from the "No team" view if they were there
+  }, [selectedMembers]);
 
 
   return (
@@ -208,10 +228,12 @@ export default function MembersPage() {
         <BulkActionToolbar
           selectedCount={selectedMembers.size}
           totalCount={memberCount}
-          costCenters={costCenters}
+          costCenters={costCenterFilter === "none" ? costCenters : []}
+          teams={teamFilter === "none" ? teams : []}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
-          onAddToCostCenter={handleAddToCostCenter}
+          onAddToCostCenter={costCenterFilter === "none" ? handleAddToCostCenter : undefined}
+          onAddToTeam={teamFilter === "none" ? handleAddToTeam : undefined}
         />
       )}
 

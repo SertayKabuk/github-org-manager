@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from "react";
-import { Webhook, Clock, CheckCircle, XCircle, RefreshCw, LogIn, ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { Webhook, Clock, CheckCircle, XCircle, RefreshCw, ChevronLeft, ChevronRight, Play } from "lucide-react";
 
 import type { ApiResponse } from "@/lib/types/github";
 import type { WebhookEventEntity, WebhookEventStatus } from "@/lib/entities/webhook-event";

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/AuthProvider";
+import Image from 'next/image'
 
 export default function Home() {
   const { isAuthenticated, isLoading, user, userLogin } = useAuth();
@@ -42,7 +43,7 @@ export default function Home() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
-              <img
+              <Image
                 src={user.avatar_url}
                 alt={user.login}
                 className="h-12 w-12 rounded-full"

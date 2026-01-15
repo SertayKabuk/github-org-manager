@@ -110,7 +110,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  let body: { username?: string; role?: TeamRole };
+  let body: { username?: string; usernames?: string[]; role?: TeamRole };
 
   try {
     body = await request.json();
@@ -121,19 +121,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const username = body.username?.trim();
   const role = body.role ?? "member";
-
-  if (!username) {
+  if (!TEAM_MEMBER_ROLES.has(role)) {
     return NextResponse.json<ApiResponse<GitHubMember>>(
-      { data: {} as GitHubMember, error: "Username is required." },
+      { data: {} as GitHubMember, error: "Invalid role." },
       { status: 400 }
     );
   }
 
-  if (!TEAM_MEMBER_ROLES.has(role)) {
+  const usernames = body.usernames ?? (body.username ? [body.username] : []);
+
+  if (usernames.length === 0) {
     return NextResponse.json<ApiResponse<GitHubMember>>(
-      { data: {} as GitHubMember, error: "Invalid role." },
+      { data: {} as GitHubMember, error: "At least one username is required." },
       { status: 400 }
     );
   }
@@ -142,32 +142,50 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const org = getOrgName();
     const octokit = await getAuthenticatedOctokit();
 
-    await octokit.rest.teams.addOrUpdateMembershipForUserInOrg({
-      org,
-      team_slug: teamSlug,
-      username,
-      role,
+    // Add all users to the team
+    await Promise.all(
+      usernames.map((username) =>
+        octokit.rest.teams.addOrUpdateMembershipForUserInOrg({
+          org,
+          team_slug: teamSlug,
+          username: username.trim(),
+          role,
+        })
+      )
+    );
+
+    // If it was a single user, fetch and return the member data for backward compatibility
+    if (usernames.length === 1) {
+      const username = usernames[0].trim();
+      const [{ data: user }, membership] = await Promise.all([
+        octokit.rest.users.getByUsername({ username }),
+        octokit.rest.teams.getMembershipForUserInOrg({
+          org,
+          team_slug: teamSlug,
+          username,
+        }),
+      ]);
+
+      const data: GitHubMember = {
+        id: user.id,
+        login: user.login,
+        avatar_url: user.avatar_url,
+        name: user.name ?? null,
+        role: membership.data.role as TeamRole,
+        type: user.type,
+      };
+
+      return NextResponse.json<ApiResponse<GitHubMember>>({ data }, { status: 200 });
+    }
+
+    interface BulkAddResponse {
+      message: string;
+    }
+
+    // For bulk add, return a success message in a compatible way
+    return NextResponse.json<ApiResponse<BulkAddResponse>>({
+      data: { message: `Successfully added ${usernames.length} members to the team.` },
     });
-
-    const [{ data: user }, membership] = await Promise.all([
-      octokit.rest.users.getByUsername({ username }),
-      octokit.rest.teams.getMembershipForUserInOrg({
-        org,
-        team_slug: teamSlug,
-        username,
-      }),
-    ]);
-
-    const data: GitHubMember = {
-      id: user.id,
-      login: user.login,
-      avatar_url: user.avatar_url,
-      name: user.name ?? null,
-      role: membership.data.role as TeamRole,
-      type: user.type,
-    };
-
-    return NextResponse.json<ApiResponse<GitHubMember>>({ data }, { status: 200 });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected error adding team member.";

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { Users, Layers, GitFork, Plus, ArrowRight, Github, Mail } from "lucide-react";
+import { Users, Layers, GitFork, Plus, ArrowRight, Github } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

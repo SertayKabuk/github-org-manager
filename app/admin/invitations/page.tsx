@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from "react";
-import { Mail, UserPlus, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, LogIn, CloudDownload } from "lucide-react";
+import { Mail, UserPlus, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, CloudDownload } from "lucide-react";
 
 import type { ApiResponse, Invitation, InvitationStatus, CreateInvitationInput } from "@/lib/types/github";
 import { Button } from "@/components/ui/button";

@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Github, Menu, X } from "lucide-react";
-
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthButton } from "@/components/auth/AuthButton";
+import { Menu, X } from "lucide-react";
 
 const NAV_ITEMS = [
     { href: "/admin", label: "Dashboard" },

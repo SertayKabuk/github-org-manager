@@ -9,6 +9,7 @@ import { saveSession } from "@/lib/auth/session";
 import { getAppUrl } from "@/lib/auth/helpers";
 import { Octokit } from "octokit";
 import * as emailMappingRepository from "@/lib/repositories/email-mapping-repository";
+import { withBasePath } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (!code) {
       const appUrl = getAppUrl();
       return NextResponse.redirect(
-        new URL("/?error=missing_code", appUrl)
+        new URL(withBasePath("/?error=missing_code"), appUrl)
       );
     }
 
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     // Redirect to the original destination or home
     const appUrl = getAppUrl();
-    const redirectUrl = new URL(returnTo, appUrl);
+    const redirectUrl = new URL(withBasePath(returnTo), appUrl);
 
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
     const message = error instanceof Error ? error.message : "Authentication failed";
     const appUrl = getAppUrl();
     return NextResponse.redirect(
-      new URL(`/?error=${encodeURIComponent(message)}`, appUrl)
+      new URL(withBasePath(`/?error=${encodeURIComponent(message)}`), appUrl)
     );
   }
 }

@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { clearSession } from "@/lib/auth/session";
 import { getAppUrl } from "@/lib/auth/helpers";
+import { withBasePath } from "@/lib/utils";
 
 export async function POST() {
   try {
@@ -19,7 +20,7 @@ export async function POST() {
 export async function GET() {
   try {
     await clearSession();
-    return NextResponse.redirect(new URL("/", getAppUrl()));
+    return NextResponse.redirect(new URL(withBasePath("/"), getAppUrl()));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Logout failed";
     return NextResponse.json({ error: message }, { status: 500 });

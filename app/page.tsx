@@ -1,12 +1,11 @@
 'use client';
 
-import { Github, LogIn, Mail, CheckCircle2 } from "lucide-react";
+import { Github, LogIn, Mail } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/AuthProvider";
-import Image from 'next/image'
 import UserDashboard from "@/components/user-dashboard/UserDashboard";
 
 export default function Home() {

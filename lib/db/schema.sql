@@ -60,3 +60,23 @@ CREATE TABLE IF NOT EXISTS email_mappings (
 CREATE INDEX IF NOT EXISTS idx_email_mappings_email ON email_mappings(email);
 CREATE INDEX IF NOT EXISTS idx_email_mappings_github_username ON email_mappings(github_username);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_mappings_unique ON email_mappings(github_user_id, email);
+
+-- Cost centers table for local caching
+CREATE TABLE IF NOT EXISTS cost_centers (
+  id VARCHAR(255) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Budgets table for local caching
+CREATE TABLE IF NOT EXISTS budgets (
+  id VARCHAR(255) PRIMARY KEY,
+  name VARCHAR(255),
+  data JSONB NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for cost centers and budgets
+CREATE INDEX IF NOT EXISTS idx_cost_centers_name ON cost_centers(name);
+CREATE INDEX IF NOT EXISTS idx_budgets_name ON budgets(name);

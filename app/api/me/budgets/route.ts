@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
 import { getSession } from "@/lib/auth/session";
 import { requireAuth } from "@/lib/auth/helpers";
-import type { ApiResponse, Budget, CostCenter } from "@/lib/types/github";
-import { mapBudget } from "../../budgets/transformers";
+import type { ApiResponse, Budget } from "@/lib/types/github";
+import * as CostCenterRepository from "@/lib/repositories/cost-center-repository";
+import * as BudgetRepository from "@/lib/repositories/budget-repository";
 
 export async function GET() {
   const authError = await requireAuth();
@@ -20,34 +20,25 @@ export async function GET() {
   }
 
   try {
-    const enterprise = getEnterpriseName();
-    const octokit = await getAuthenticatedOctokit();
-
-    // 1. Get all active cost centers to find the user's one
-    const ccResponse = await octokit.request(
-      "GET /enterprises/{enterprise}/settings/billing/cost-centers",
-      {
-        enterprise,
-        state: "active",
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      }
-    );
-
-    const allCostCenters: CostCenter[] = ccResponse.data.costCenters || [];
-    const userCostCenter = allCostCenters.find(cc => 
-      cc.resources.some(r => 
-        r.type === "User" && r.name.toLowerCase() === login.toLowerCase()
-      )
-    );
+    // 1. Get the user's cost center from cache
+    const userCostCenter = await CostCenterRepository.findByLogin(login);
 
     if (!userCostCenter) {
       return NextResponse.json<ApiResponse<Budget[]>>({ data: [] });
     }
 
-    // 2. Get all budgets and filter by this cost center
-    const budgetResponse = await octokit.request(
+    // 2. Get budgets for this cost center from cache
+    const budgets = await BudgetRepository.findByCostCenterName(userCostCenter.name);
+
+    return NextResponse.json<ApiResponse<Budget[]>>({ data: budgets }, { status: 200 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error fetching user budgets.";
+    return NextResponse.json<ApiResponse<Budget[]>>(
+      { data: [], error: message },
+      { status: 500 }
+    );
+  }
+}
       "GET /enterprises/{enterprise}/settings/billing/budgets",
       {
         enterprise,

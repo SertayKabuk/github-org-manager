@@ -17,8 +17,9 @@ export async function register() {
 
         const cron = await import('node-cron');
         const { processWebhookEvents } = await import('@/lib/services/webhook-processor');
+        const { syncBillingData } = await import('@/lib/services/billing-sync-service');
 
-        // Run every minute
+        // Run webhook processor every minute
         cron.schedule('* * * * *', async () => {
             console.log('[Cron] Processing pending webhook events...');
             try {
@@ -28,6 +29,22 @@ export async function register() {
             }
         });
 
+        // Run billing data sync every 30 minutes
+        cron.schedule('*/30 * * * *', async () => {
+            console.log('[Cron] Syncing billing data...');
+            try {
+                await syncBillingData();
+            } catch (error) {
+                console.error('[Cron] Error syncing billing data:', error);
+            }
+        });
+
+        // Initial sync on startup
+        syncBillingData().catch(error => {
+            console.error('[Cron] Initial billing data sync failed:', error);
+        });
+
         console.log('[Cron] Webhook processor scheduled (runs every minute)');
+        console.log('[Cron] Billing data sync scheduled (runs every 30 minutes)');
     }
 }

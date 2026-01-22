@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { getEnterpriseName } from "@/lib/octokit";
 import { getSession } from "@/lib/auth/session";
 import { requireAuth } from "@/lib/auth/helpers";
 import type { ApiResponse, CostCenter } from "@/lib/types/github";
+import * as CostCenterRepository from "@/lib/repositories/cost-center-repository";
 
 export async function GET() {
   const authError = await requireAuth();
@@ -19,35 +20,20 @@ export async function GET() {
   }
 
   try {
-    const enterprise = getEnterpriseName();
-    const octokit = await getAuthenticatedOctokit();
-
-    // Fetch all active cost centers for the enterprise
-    // NOTE: If there are many, we might need pagination if supported,
-    // but usually cost centers are not in the thousands.
-    const response = await octokit.request(
-      "GET /enterprises/{enterprise}/settings/billing/cost-centers",
-      {
-        enterprise,
-        state: "active",
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      }
-    );
-
-    const allCostCenters: CostCenter[] = response.data.costCenters || [];
-    
-    // Find cost center containing the user
-    // Resource name match is case-insensitive usually but we'll check carefully
-    const userCostCenter = allCostCenters.find(cc => 
-      cc.resources.some(r => 
-        r.type === "User" && r.name.toLowerCase() === login.toLowerCase()
-      )
-    );
+    // Find cost center containing the user from database cache
+    const userCostCenter = await CostCenterRepository.findByLogin(login);
 
     return NextResponse.json<ApiResponse<CostCenter | null>>({ 
       data: userCostCenter || null 
+    }, { status: 200 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error fetching user cost center.";
+    return NextResponse.json<ApiResponse<CostCenter | null>>(
+      { data: null, error: message },
+      { status: 500 }
+    );
+  }
+}
     });
   } catch (error) {
     console.error("Error fetching user cost center:", error);

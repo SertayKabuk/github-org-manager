@@ -12,4 +12,8 @@ const nextConfig: NextConfig = {
   },
 };
 
+module.exports = {
+  basePath: '/github',
+}
+
 export default nextConfig;

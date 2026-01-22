@@ -13,10 +13,10 @@ export async function GET(request: NextRequest) {
         // Get the redirect URL (where to send user after they return from GitHub)
         const returnTo = request.nextUrl.searchParams.get("returnTo") || "/";
 
-        // Generate the GitHub authorization URL with user:email scope only
+        // Generate the GitHub authorization URL with user:email and read:org scope
         const { url } = oauthApp.getWebFlowAuthorizationUrl({
             redirectUrl: callbackUrl,
-            scopes: ["user:email"],
+            scopes: ["user:email", "read:org"],
             state: `user:${returnTo}`, // Prefix with login type
         });
 

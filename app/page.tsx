@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/AuthProvider";
 import Image from 'next/image'
+import UserDashboard from "@/components/user-dashboard/UserDashboard";
 
 export default function Home() {
   const { isAuthenticated, isLoading, user, userLogin } = useAuth();
@@ -22,45 +23,9 @@ export default function Home() {
     );
   }
 
-  // Show thank you page after user login
+  // Show user dashboard after user login
   if (isAuthenticated && user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-500/10 mb-6">
-          <CheckCircle2 className="h-10 w-10 text-green-500" />
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Thank You!</h1>
-        <p className="text-muted-foreground mb-4 max-w-md">
-          Your GitHub account has been linked successfully.
-        </p>
-
-        <Card className="mt-8 w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Github className="h-5 w-5" />
-              Account Linked
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Image
-                src={user.avatar_url}
-                alt={user.login}
-                className="h-12 w-12 rounded-full"
-              />
-              <div className="text-left">
-                <p className="font-medium">{user.name || user.login}</p>
-                <p className="text-sm text-muted-foreground">@{user.login}</p>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Your email addresses have been recorded and linked to your GitHub username.
-              You can close this page now.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <UserDashboard />;
   }
 
   // Show login prompt if not authenticated

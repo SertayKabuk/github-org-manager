@@ -124,7 +124,7 @@ export default function WebhooksPage() {
             params.set("offset", offset.toString());
 
             const url = `/api/webhooks/github?${params.toString()}`;
-            const response = await fetch(url);
+            const response = await fetch(withBasePath(url));
             const data: ApiResponse<PaginatedWebhookResponse> = await response.json();
 
             if (data.error) {

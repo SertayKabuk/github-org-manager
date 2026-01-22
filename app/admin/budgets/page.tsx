@@ -73,7 +73,7 @@ export default function BudgetsPage() {
         }
 
         const response = await fetch(
-          `/api/billing-usage?costCenterId=${encodeURIComponent(costCenterId)}`
+          withBasePath(`/api/billing-usage?costCenterId=${encodeURIComponent(costCenterId)}`)
         );
 
         if (!response.ok) {
@@ -139,7 +139,7 @@ export default function BudgetsPage() {
     setActionError(null);
 
     try {
-      const response = await fetch(`/api/budgets/${selectedBudget.id}`, {
+      const response = await fetch(withBasePath(`/api/budgets/${selectedBudget.id}`), {
         method: "DELETE",
       });
 

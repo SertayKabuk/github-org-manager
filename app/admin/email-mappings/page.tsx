@@ -33,7 +33,7 @@ async function fetchEmailMappings(search?: string): Promise<EmailMapping[]> {
     if (search) {
         params.set("search", search);
     }
-    const response = await fetch(`/api/email-mappings?${params.toString()}`);
+    const response = await fetch(withBasePath(`/api/email-mappings?${params.toString()}`));
     if (!response.ok) {
         throw new Error("Failed to fetch email mappings");
     }

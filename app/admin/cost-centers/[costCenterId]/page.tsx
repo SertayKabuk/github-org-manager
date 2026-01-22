@@ -64,7 +64,7 @@ export default function CostCenterDetailsPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/cost-centers/${costCenterId}`);
+      const response = await fetch(withBasePath(`/api/cost-centers/${costCenterId}`));
 
       if (!response.ok) {
         throw new Error(`Failed to load cost center (${response.status})`);
@@ -127,7 +127,7 @@ export default function CostCenterDetailsPage() {
 
     setSaving(true);
     try {
-      const response = await fetch(`/api/cost-centers/${costCenterId}`, {
+      const response = await fetch(withBasePath(`/api/cost-centers/${costCenterId}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: formState.name }),
@@ -161,7 +161,7 @@ export default function CostCenterDetailsPage() {
 
     setDeleting(true);
     try {
-      const response = await fetch(`/api/cost-centers/${costCenterId}`, { method: "DELETE" });
+      const response = await fetch(withBasePath(`/api/cost-centers/${costCenterId}`), { method: "DELETE" });
       if (!response.ok) {
         const json = (await response.json().catch(() => null)) as CostCenterResponse | null;
         throw new Error(json?.error ?? `Failed to delete cost center (${response.status})`);
@@ -205,7 +205,7 @@ export default function CostCenterDetailsPage() {
           users: chunk
         };
 
-        const response = await fetch(`/api/cost-centers/${costCenterId}/resource`, {
+        const response = await fetch(withBasePath(`/api/cost-centers/${costCenterId}/resource`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -236,7 +236,7 @@ export default function CostCenterDetailsPage() {
         [resourceType]: [resourceName.trim()],
       };
 
-      const response = await fetch(`/api/cost-centers/${costCenterId}/resource`, {
+      const response = await fetch(withBasePath(`/api/cost-centers/${costCenterId}/resource`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -277,7 +277,7 @@ export default function CostCenterDetailsPage() {
         [resourceTypeKey]: [resource.name],
       };
 
-      const response = await fetch(`/api/cost-centers/${costCenterId}/resource`, {
+      const response = await fetch(withBasePath(`/api/cost-centers/${costCenterId}/resource`), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

@@ -107,7 +107,7 @@ export default function InvitationsPage() {
             const url = statusFilter === "all"
                 ? "/api/invitations"
                 : `/api/invitations?status=${statusFilter}`;
-            const response = await fetch(url);
+            const response = await fetch(withBasePath(url));
             const data: ApiResponse<Invitation[]> = await response.json();
 
             if (data.error) {

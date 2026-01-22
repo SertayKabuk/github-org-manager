@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     // Get scopes from token (basic detection based on login type)
     const scopes = validLoginType === "admin"
       ? ["admin:org", "user", "manage_billing:enterprise", "read:enterprise", "manage_billing:copilot"]
-      : ["user:email"];
+      : ["user:email", "read:org"];
 
     // Save to session with login type and scopes
     await saveSession(

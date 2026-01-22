@@ -4,6 +4,8 @@ import { useMemo, useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
 
+import { withBasePath } from "@/lib/utils";
+
 import type {
   BudgetScope,
   BudgetType,
@@ -177,7 +179,7 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
       setCostCentersError(null);
 
       try {
-        const res = await fetch(`/api/cost-centers`);
+        const res = await fetch(withBasePath(`/api/cost-centers`));
         if (!res.ok) throw new Error(`Failed to load cost centers: ${res.status}`);
         const json = await res.json();
         const data: { data: CostCenter[]; error?: string } = json;

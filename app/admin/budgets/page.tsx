@@ -21,6 +21,8 @@ type BudgetDeleteResponse = ApiResponse<BudgetDeleteResult>;
 
 type ScopeFilter = "all" | BudgetScope;
 
+import { withBasePath } from "@/lib/utils";
+
 export default function BudgetsPage() {
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
@@ -164,7 +166,7 @@ export default function BudgetsPage() {
     setActionError(null);
 
     try {
-      const response = await fetch("/api/budgets", {
+      const response = await fetch(withBasePath("/api/budgets"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

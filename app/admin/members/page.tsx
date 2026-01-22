@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Users, Filter } from "lucide-react";
 
+import { withBasePath } from "@/lib/utils";
 import type { GitHubMember } from "@/lib/types/github";
 import MemberList from "@/components/members/MemberList";
 import BulkActionToolbar from "@/components/members/BulkActionToolbar";
@@ -129,7 +130,7 @@ export default function MembersPage() {
     const users = Array.from(selectedMembers);
     if (users.length === 0) return;
 
-    const response = await fetch(`/api/cost-centers/${costCenterId}/resource`, {
+    const response = await fetch(withBasePath(`/api/cost-centers/${costCenterId}/resource`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ users }),
@@ -150,7 +151,7 @@ export default function MembersPage() {
     const usernames = Array.from(selectedMembers);
     if (usernames.length === 0) return;
 
-    const response = await fetch(`/api/teams/${teamSlug}/members`, {
+    const response = await fetch(withBasePath(`/api/teams/${teamSlug}/members`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ usernames }),

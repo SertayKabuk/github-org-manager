@@ -78,6 +78,8 @@ function formatDate(dateString: string | null): string {
     });
 }
 
+import { withBasePath } from "@/lib/utils";
+
 export default function InvitationsPage() {
     const { isAuthenticated } = useAuth();
     const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -133,7 +135,7 @@ export default function InvitationsPage() {
         setSubmitting(true);
 
         try {
-            const response = await fetch("/api/invitations", {
+            const response = await fetch(withBasePath("/api/invitations"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, role }),
@@ -160,7 +162,7 @@ export default function InvitationsPage() {
         setSyncMessage(null);
 
         try {
-            const response = await fetch("/api/invitations/sync", {
+            const response = await fetch(withBasePath("/api/invitations/sync"), {
                 method: "POST",
             });
 

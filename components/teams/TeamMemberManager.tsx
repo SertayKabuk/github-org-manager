@@ -15,6 +15,8 @@ import {
 } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 
+import { withBasePath } from "@/lib/utils";
+
 import type { GitHubMember } from "@/lib/types/github";
 
 import DraggableMember from "@/components/members/DraggableMember";
@@ -143,7 +145,7 @@ export default function TeamMemberManager({
     setAvailableMembers((members) => members.filter((item) => item.login !== member.login));
 
     try {
-      const response = await fetch(`/api/teams/${teamSlug}/members`, {
+      const response = await fetch(withBasePath(`/api/teams/${teamSlug}/members`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: member.login, role: "member" }),
@@ -186,7 +188,7 @@ export default function TeamMemberManager({
     setAvailableMembers((members) => [{ ...member, role: undefined }, ...members]);
 
     try {
-      const response = await fetch(`/api/teams/${teamSlug}/members?username=${member.login}`, {
+      const response = await fetch(withBasePath(`/api/teams/${teamSlug}/members?username=${member.login}`), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });

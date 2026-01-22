@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { withBasePath } from "@/lib/utils";
+
 import CreateTeamForm from "@/components/teams/CreateTeamForm";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 
@@ -18,7 +20,7 @@ export default function CreateTeamPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/teams", {
+      const response = await fetch(withBasePath("/api/teams"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

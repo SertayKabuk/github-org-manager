@@ -91,6 +91,8 @@ function formatDate(dateString: string | null): string {
     });
 }
 
+import { withBasePath } from "@/lib/utils";
+
 export default function WebhooksPage() {
     const { isAuthenticated } = useAuth();
     const [events, setEvents] = useState<WebhookEventEntity[]>([]);
@@ -154,7 +156,7 @@ export default function WebhooksPage() {
         setProcessMessage(null);
 
         try {
-            const response = await fetch("/api/webhooks/github/process", {
+            const response = await fetch(withBasePath("/api/webhooks/github/process"), {
                 method: "POST",
             });
 

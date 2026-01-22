@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { withBasePath } from "@/lib/utils";
 import TeamList from "@/components/teams/TeamList";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ export default function TeamsPage() {
     }
 
     try {
-      const response = await fetch(`/api/teams/${team.slug}`, { method: "DELETE" });
+      const response = await fetch(withBasePath(`/api/teams/${team.slug}`), { method: "DELETE" });
       if (!response.ok && response.status !== 204) {
         throw new Error(await response.text());
       }

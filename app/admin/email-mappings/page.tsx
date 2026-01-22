@@ -41,6 +41,8 @@ async function fetchEmailMappings(search?: string): Promise<EmailMapping[]> {
     return data.data || [];
 }
 
+import { withBasePath } from "@/lib/utils";
+
 export default function EmailMappingsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -59,7 +61,7 @@ export default function EmailMappingsPage() {
     const handleExport = async () => {
         setIsExporting(true);
         try {
-            const response = await fetch("/api/email-mappings/export");
+            const response = await fetch(withBasePath("/api/email-mappings/export"));
             if (!response.ok) {
                 throw new Error("Failed to export email mappings");
             }

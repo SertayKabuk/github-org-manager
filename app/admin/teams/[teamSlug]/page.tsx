@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Save, Trash2, RotateCcw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { withBasePath } from "@/lib/utils";
+
 import TeamMemberManager from "@/components/teams/TeamMemberManager";
 import { Input } from "@/components/ui/input";
 import {
@@ -90,7 +92,7 @@ export default function TeamDetailsPage() {
     setSaving(true);
     setActionError(null);
     try {
-      const response = await fetch(`/api/teams/${teamSlug}`, {
+      const response = await fetch(withBasePath(`/api/teams/${teamSlug}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -135,7 +137,7 @@ export default function TeamDetailsPage() {
     setDeleting(true);
     setActionError(null);
     try {
-      const response = await fetch(`/api/teams/${teamSlug}`, { method: "DELETE" });
+      const response = await fetch(withBasePath(`/api/teams/${teamSlug}`), { method: "DELETE" });
       if (!response.ok && response.status !== 204) {
         const json = (await response.json().catch(() => null)) as TeamResponse | null;
         throw new Error(json?.error ?? `Failed to delete team (${response.status})`);

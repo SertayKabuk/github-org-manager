@@ -25,6 +25,8 @@ type CostCenterResponse = ApiResponse<CostCenter>;
 
 type StateFilter = "all" | CostCenterState;
 
+import { withBasePath } from "@/lib/utils";
+
 export default function CostCentersPage() {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export default function CostCentersPage() {
     setCreating(true);
     setActionError(null);
     try {
-      const response = await fetch("/api/cost-centers", {
+      const response = await fetch(withBasePath("/api/cost-centers"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

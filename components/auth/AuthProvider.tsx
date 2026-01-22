@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { withBasePath } from "@/lib/utils";
 
 interface User {
   login: string;
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchAuthStatus = async () => {
     try {
-      const response = await fetch("/api/auth/github/me");
+      const response = await fetch(withBasePath("/api/auth/github/me"));
       const data = await response.json();
 
       if (data.authenticated && data.user) {
@@ -65,7 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (returnTo) {
       params.set("returnTo", returnTo);
     }
-    window.location.href = `/api/auth/github/admin/login${params.toString() ? `?${params.toString()}` : ""}`;
+    const path = `/api/auth/github/admin/login${params.toString() ? `?${params.toString()}` : ""}`;
+    window.location.href = withBasePath(path);
   };
 
   const userLogin = (returnTo?: string) => {
@@ -73,16 +75,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (returnTo) {
       params.set("returnTo", returnTo);
     }
-    window.location.href = `/api/auth/github/user/login${params.toString() ? `?${params.toString()}` : ""}`;
+    const path = `/api/auth/github/user/login${params.toString() ? `?${params.toString()}` : ""}`;
+    window.location.href = withBasePath(path);
   };
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/github/logout", { method: "POST" });
+      await fetch(withBasePath("/api/auth/github/logout"), { method: "POST" });
       setUser(null);
       setScopes([]);
       setLoginType(null);
-      window.location.href = "/";
+      window.location.href = withBasePath("/");
     } catch (error) {
       console.error("Logout failed:", error);
     }

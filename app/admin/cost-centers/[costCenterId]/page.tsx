@@ -31,7 +31,7 @@ import type {
 
 type CostCenterResponse = ApiResponse<CostCenter>;
 type ResourceActionResponse = ApiResponse<{ message: string }>;
-
+import { withBasePath } from "@/lib/utils";
 export default function CostCenterDetailsPage() {
   const params = useParams<{ costCenterId: string }>();
   const router = useRouter();
@@ -96,9 +96,9 @@ export default function CostCenterDetailsPage() {
     setLoadingResources(true);
     try {
       const [membersResponse, reposResponse, orgsResponse] = await Promise.all([
-        fetch("/api/members"),
-        fetch("/api/repositories"),
-        fetch("/api/organizations"),
+        fetch(withBasePath("/api/members")),
+        fetch(withBasePath("/api/repositories")),
+        fetch(withBasePath("/api/organizations")),
       ]);
 
       if (membersResponse.ok) {
@@ -184,7 +184,7 @@ export default function CostCenterDetailsPage() {
     setAddingAllMembers(true);
     try {
       // Fetch enterprise members using GraphQL API
-      const membersResponse = await fetch("/api/enterprise-members");
+      const membersResponse = await fetch(withBasePath("/api/enterprise-members"));
       if (!membersResponse.ok) {
          throw new Error("Failed to fetch enterprise members");
       }

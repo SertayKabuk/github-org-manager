@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getEnterpriseName } from "@/lib/octokit";
 import { getSession } from "@/lib/auth/session";
 import { requireAuth } from "@/lib/auth/helpers";
 import type { ApiResponse, CostCenter } from "@/lib/types/github";
@@ -33,13 +32,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
-    });
-  } catch (error) {
-    console.error("Error fetching user cost center:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch cost center info" },
-      { status: 500 }
-    );
-  }
-}
+} 

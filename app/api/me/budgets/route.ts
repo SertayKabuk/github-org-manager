@@ -39,30 +39,3 @@ export async function GET() {
     );
   }
 }
-      "GET /enterprises/{enterprise}/settings/billing/budgets",
-      {
-        enterprise,
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      }
-    );
-
-    const budgetsRaw = Array.isArray(budgetResponse.data?.budgets) ? budgetResponse.data.budgets : [];
-    const allBudgets: Budget[] = budgetsRaw.map(mapBudget);
-    
-    // Filter budgets scoped to this cost center
-    const userBudgets = allBudgets.filter(b => 
-      b.budget_scope === "cost_center" && 
-      b.budget_entity_name === userCostCenter.name
-    );
-
-    return NextResponse.json<ApiResponse<Budget[]>>({ data: userBudgets });
-  } catch (error) {
-    console.error("Error fetching user budgets:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch budgets" },
-      { status: 500 }
-    );
-  }
-}

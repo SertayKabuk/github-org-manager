@@ -3,6 +3,8 @@
  * Uses connection pooling for efficient database access.
  */
 import { Pool, PoolClient } from 'pg';
+import fs from 'fs';
+import path from 'path';
 
 // Create a connection pool
 const pool = new Pool({
@@ -56,6 +58,26 @@ export async function checkConnection(): Promise<boolean> {
  */
 export async function closePool(): Promise<void> {
   await pool.end();
+}
+
+/**
+ * Initialize the database by running the schema.sql file
+ */
+export async function initializeDatabase(): Promise<void> {
+  try {
+    const schemaPath = path.join(process.cwd(), 'lib', 'db', 'schema.sql');
+    if (!fs.existsSync(schemaPath)) {
+      console.warn(`[DB] Schema file not found at ${schemaPath}`);
+      return;
+    }
+
+    const schema = fs.readFileSync(schemaPath, 'utf8');
+    await pool.query(schema);
+    console.log('[DB] Database schema initialized successfully');
+  } catch (error) {
+    console.error('[DB] Failed to initialize database schema:', error);
+    throw error;
+  }
 }
 
 export default pool;

@@ -6,6 +6,15 @@
 export async function register() {
     // Only run on server, not during build
     if (process.env.NEXT_RUNTIME === 'nodejs') {
+        const { initializeDatabase } = await import('@/lib/db');
+        
+        // Initialize database schema
+        try {
+            await initializeDatabase();
+        } catch (error) {
+            console.error('[DB] Schema initialization failed during startup:', error);
+        }
+
         const cron = await import('node-cron');
         const { processWebhookEvents } = await import('@/lib/services/webhook-processor');
 

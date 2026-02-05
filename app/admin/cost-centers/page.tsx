@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCostCenters } from "@/lib/hooks";
+import { useCostCenters, useBudgets } from "@/lib/hooks";
 
 import type { ApiResponse, CostCenter, CreateCostCenterInput, CostCenterState } from "@/lib/types/github";
 
@@ -40,6 +40,8 @@ export default function CostCentersPage() {
     isLoading: loading,
     error: fetchError,
   } = useCostCenters();
+
+  const { data: budgets = [] } = useBudgets();
 
   const error = fetchError || actionError;
 
@@ -148,7 +150,7 @@ export default function CostCentersPage() {
         </Card>
       )}
 
-      <CostCenterList costCenters={filteredCostCenters} />
+      <CostCenterList costCenters={filteredCostCenters} budgets={budgets} />
     </div>
   );
 }

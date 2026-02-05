@@ -1,21 +1,31 @@
 'use client';
 
-import { Building2, Users, Lock, Package } from "lucide-react";
+import { Building2, Users, Lock, Package, Wallet } from "lucide-react";
 
-import type { CostCenter } from "@/lib/types/github";
+import type { CostCenter, Budget } from "@/lib/types/github";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 interface CostCenterCardProps {
   costCenter: CostCenter;
+  budget?: Budget;
   onClick?: (costCenter: CostCenter) => void;
 }
 
-export default function CostCenterCard({ costCenter, onClick }: CostCenterCardProps) {
+export default function CostCenterCard({ costCenter, budget, onClick }: CostCenterCardProps) {
   const userCount = costCenter.resources.filter((r) => r.type === "User").length;
   const repoCount = costCenter.resources.filter((r) => r.type === "Repo").length;
   const orgCount = costCenter.resources.filter((r) => r.type === "Organization").length;
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
   return (
     <Card
@@ -46,7 +56,7 @@ export default function CostCenterCard({ costCenter, onClick }: CostCenterCardPr
         )}
       </CardHeader>
       <CardContent className="flex-1">
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1" title="Users">
             <Users className="h-4 w-4" />
             <span>{userCount}</span>
@@ -60,6 +70,26 @@ export default function CostCenterCard({ costCenter, onClick }: CostCenterCardPr
             <span>{orgCount}</span>
           </div>
         </div>
+
+        {budget && (
+          <div className="mt-4 border-t pt-4">
+            <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Wallet className="h-3.5 w-3.5" />
+                <span>Budget</span>
+              </div>
+              <span>{budget.budget_product_sku}</span>
+            </div>
+            <div className="flex items-end justify-between">
+              <div className="text-2xl font-bold">
+                {formatCurrency(budget.budget_amount)}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {budget.prevent_further_usage ? "Hard limit" : "Soft limit"}
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -277,7 +277,7 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
               </SelectTrigger>
               <SelectContent>
                 {costCenters.map((cc) => (
-                  <SelectItem key={cc.id} value={cc.id}>
+                  <SelectItem key={cc.id} value={cc.name}>
                     {cc.name}
                   </SelectItem>
                 ))}

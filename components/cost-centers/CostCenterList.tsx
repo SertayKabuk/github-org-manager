@@ -2,15 +2,16 @@
 
 import { useRouter } from "next/navigation";
 
-import type { CostCenter } from "@/lib/types/github";
+import type { CostCenter, Budget } from "@/lib/types/github";
 
 import CostCenterCard from "./CostCenterCard";
 
 interface CostCenterListProps {
   costCenters: CostCenter[];
+  budgets?: Budget[];
 }
 
-export default function CostCenterList({ costCenters }: CostCenterListProps) {
+export default function CostCenterList({ costCenters, budgets = [] }: CostCenterListProps) {
   const router = useRouter();
 
   const handleCostCenterClick = (costCenter: CostCenter) => {
@@ -27,13 +28,20 @@ export default function CostCenterList({ costCenters }: CostCenterListProps) {
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {costCenters.map((costCenter) => (
-        <CostCenterCard
-          key={costCenter.id}
-          costCenter={costCenter}
-          onClick={handleCostCenterClick}
-        />
-      ))}
+      {costCenters.map((costCenter) => {
+        const budget = budgets.find(
+          (b) => b.budget_scope === "cost_center" && b.budget_entity_name === costCenter.name
+        );
+        
+        return (
+          <CostCenterCard
+            key={costCenter.id}
+            costCenter={costCenter}
+            budget={budget}
+            onClick={handleCostCenterClick}
+          />
+        );
+      })}
     </div>
   );
 }

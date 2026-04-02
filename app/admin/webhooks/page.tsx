@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from "react";
-import { Webhook, Clock, CheckCircle, XCircle, RefreshCw, ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { Webhook, Clock, CheckCircle, XCircle, RefreshCw, ChevronLeft, ChevronRight, Play, ChevronDown, ChevronUp } from "lucide-react";
 
 import type { ApiResponse } from "@/lib/types/github";
 import type { WebhookEventEntity, WebhookEventStatus } from "@/lib/entities/webhook-event";
@@ -42,6 +42,9 @@ const STATUS_OPTIONS = [
 const EVENT_TYPE_OPTIONS = [
     { label: "All Events", value: "all" },
     { label: "Organization", value: "organization" },
+    { label: "Team", value: "team" },
+    { label: "Team Add", value: "team_add" },
+    { label: "Membership", value: "membership" },
 ];
 
 const ACTION_OPTIONS = [
@@ -49,9 +52,32 @@ const ACTION_OPTIONS = [
     { label: "Member Added", value: "member_added" },
     { label: "Member Invited", value: "member_invited" },
     { label: "Member Removed", value: "member_removed" },
+    { label: "Repo Added To Team", value: "added_to_repository" },
+    { label: "Repo Removed From Team", value: "removed_from_repository" },
+    { label: "Membership Removed", value: "removed" },
 ];
 
 const PAGE_SIZE = 20;
+
+function formatJson(value: unknown): string {
+    return JSON.stringify(value, null, 2);
+}
+
+function getOutcomeSummary(event: WebhookEventEntity): string {
+    if (event.outcome_summary) {
+        return event.outcome_summary;
+    }
+
+    if (event.error_message) {
+        return event.error_message;
+    }
+
+    if (event.status === "pending") {
+        return "Waiting to be processed.";
+    }
+
+    return "No detailed outcome recorded.";
+}
 
 function getStatusIcon(status: WebhookEventStatus) {
     switch (status) {
@@ -96,6 +122,7 @@ import { withBasePath } from "@/lib/utils";
 export default function WebhooksPage() {
     const { isAuthenticated } = useAuth();
     const [events, setEvents] = useState<WebhookEventEntity[]>([]);
+    const [expandedEventIds, setExpandedEventIds] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [total, setTotal] = useState(0);
@@ -181,6 +208,14 @@ export default function WebhooksPage() {
 
     const goToPage = (page: number) => {
         setOffset((page - 1) * PAGE_SIZE);
+    };
+
+    const toggleExpanded = (eventId: number) => {
+        setExpandedEventIds((current) =>
+            current.includes(eventId)
+                ? current.filter((id) => id !== eventId)
+                : [...current, eventId]
+        );
     };
 
 
@@ -294,6 +329,7 @@ export default function WebhooksPage() {
                                                         <span className="ml-1 capitalize">{event.status}</span>
                                                     </Badge>
                                                 </div>
+                                                <p className="text-sm text-foreground/90">{getOutcomeSummary(event)}</p>
                                                 <p className="text-xs text-muted-foreground font-mono">
                                                     Delivery: {event.delivery_id}
                                                 </p>
@@ -308,8 +344,53 @@ export default function WebhooksPage() {
                                                 {event.processed_at && (
                                                     <div>Processed: {formatDate(event.processed_at as unknown as string)}</div>
                                                 )}
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="mt-3 gap-2"
+                                                    onClick={() => toggleExpanded(event.id)}
+                                                >
+                                                    {expandedEventIds.includes(event.id) ? (
+                                                        <>
+                                                            <ChevronUp className="h-4 w-4" />
+                                                            Hide details
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <ChevronDown className="h-4 w-4" />
+                                                            View details
+                                                        </>
+                                                    )}
+                                                </Button>
                                             </div>
                                         </div>
+                                        {expandedEventIds.includes(event.id) && (
+                                            <div className="mt-4 grid gap-4 rounded-lg border bg-muted/20 p-4">
+                                                <div>
+                                                    <h3 className="text-sm font-semibold">What happened</h3>
+                                                    <p className="mt-1 text-sm text-muted-foreground">
+                                                        {getOutcomeSummary(event)}
+                                                    </p>
+                                                </div>
+
+                                                {event.outcome_details && (
+                                                    <div className="grid gap-2">
+                                                        <h3 className="text-sm font-semibold">Outcome details</h3>
+                                                        <pre className="overflow-x-auto rounded-md border bg-background p-3 text-xs leading-5 text-foreground">
+                                                            {formatJson(event.outcome_details)}
+                                                        </pre>
+                                                    </div>
+                                                )}
+
+                                                <div className="grid gap-2">
+                                                    <h3 className="text-sm font-semibold">Payload</h3>
+                                                    <pre className="max-h-[28rem] overflow-auto rounded-md border bg-background p-3 text-xs leading-5 text-foreground">
+                                                        {formatJson(event.payload)}
+                                                    </pre>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

@@ -2,8 +2,31 @@
  * Lightweight Octokit singleton used across the app.
  * Supports both OAuth tokens (from session) and static tokens (from env).
  */
+import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "octokit";
 import { getToken } from "./auth/session";
+
+const USER_AGENT = "github-org-manager/1.0.0";
+const GITHUB_API_VERSION = "2022-11-28";
+
+function parseInstallationId(value: string | undefined): number | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getGitHubAppPrivateKey(): string | null {
+  const privateKey = process.env.GITHUB_PRIVATE_KEY;
+
+  if (!privateKey?.trim()) {
+    return null;
+  }
+
+  return privateKey.includes("\\n") ? privateKey.replace(/\\n/g, "\n") : privateKey;
+}
 
 /**
  * Creates an Octokit instance with OAuth token from session.
@@ -14,7 +37,7 @@ export async function getAuthenticatedOctokit(): Promise<Octokit> {
   
   return new Octokit({
     auth: token,
-    userAgent: "github-org-manager/1.0.0",
+    userAgent: USER_AGENT,
   });
 }
 
@@ -60,7 +83,45 @@ export function getSystemOctokit(): Octokit {
 
   return new Octokit({
     auth: token,
-    userAgent: "github-org-manager/1.0.0",
+    userAgent: USER_AGENT,
+  });
+}
+
+/**
+ * Creates an Octokit instance for background automation.
+ * Prefers the existing system token and falls back to GitHub App auth.
+ */
+export async function getAutomationOctokit(
+  installationId?: number
+): Promise<Octokit> {
+  if (process.env.GITHUB_SYSTEM_TOKEN?.trim()) {
+    return getSystemOctokit();
+  }
+
+  const appId = process.env.GITHUB_APP_ID;
+  const privateKey = getGitHubAppPrivateKey();
+  const resolvedInstallationId =
+    installationId ?? parseInstallationId(process.env.GITHUB_APP_INSTALLATION_ID);
+
+  if (!appId || !privateKey || !resolvedInstallationId) {
+    throw new Error(
+      "Missing automation credentials. Configure GITHUB_SYSTEM_TOKEN or GitHub App settings (GITHUB_APP_ID, GITHUB_PRIVATE_KEY, and GITHUB_APP_INSTALLATION_ID or an installation webhook payload)."
+    );
+  }
+
+  return new Octokit({
+    authStrategy: createAppAuth,
+    auth: {
+      appId,
+      privateKey,
+      installationId: resolvedInstallationId,
+    },
+    userAgent: USER_AGENT,
+    request: {
+      headers: {
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      },
+    },
   });
 }
 

@@ -15,6 +15,8 @@ export interface WebhookEventEntity {
     action: string | null;
     payload: Record<string, unknown>;
     status: WebhookEventStatus;
+    outcome_summary: string | null;
+    outcome_details: Record<string, unknown> | null;
     error_message: string | null;
     processed_at: Date | null;
     created_at: Date;

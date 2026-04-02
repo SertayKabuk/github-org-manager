@@ -1,6 +1,28 @@
 # Multi-stage build for Next.js 16 application
 FROM node:lts-alpine AS base
 
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ARG http_proxy
+ARG https_proxy
+ARG no_proxy
+
+ENV HTTP_PROXY=${HTTP_PROXY} \
+	HTTPS_PROXY=${HTTPS_PROXY} \
+	NO_PROXY=${NO_PROXY} \
+	http_proxy=${http_proxy} \
+	https_proxy=${https_proxy} \
+	no_proxy=${no_proxy}
+
+COPY BG_SEProxy_CA.crt /tmp/BG_SEProxy_CA.crt
+RUN cat /tmp/BG_SEProxy_CA.crt >> /etc/ssl/cert.pem \
+	&& mkdir -p /usr/local/share/ca-certificates \
+	&& cp /tmp/BG_SEProxy_CA.crt /usr/local/share/ca-certificates/BG_SEProxy_CA.crt \
+	&& apk add --no-cache ca-certificates \
+	&& update-ca-certificates
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 

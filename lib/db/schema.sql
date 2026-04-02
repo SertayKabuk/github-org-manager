@@ -34,10 +34,15 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   action VARCHAR(100),
   payload JSONB NOT NULL,
   status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'processed', 'failed')),
+  outcome_summary TEXT,
+  outcome_details JSONB,
   error_message TEXT,
   processed_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE webhook_events ADD COLUMN IF NOT EXISTS outcome_summary TEXT;
+ALTER TABLE webhook_events ADD COLUMN IF NOT EXISTS outcome_details JSONB;
 
 -- Indexes for webhook events
 CREATE INDEX IF NOT EXISTS idx_webhook_events_delivery_id ON webhook_events(delivery_id);
@@ -76,6 +81,28 @@ CREATE TABLE IF NOT EXISTS budgets (
   data JSONB NOT NULL,
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Access automation rules table for mapping multiple teams/users/behaviors
+CREATE TABLE IF NOT EXISTS access_automation_rules (
+  id SERIAL PRIMARY KEY,
+  rule_name VARCHAR(255) NOT NULL,
+  target_org VARCHAR(255) NOT NULL,
+  target_team_slug VARCHAR(255),
+  target_team_id INTEGER,
+  target_username VARCHAR(255) NOT NULL,
+  enable_grant_on_add BOOLEAN DEFAULT true,
+  enable_revoke_on_remove BOOLEAN DEFAULT false,
+  enable_revoke_on_team_member_remove BOOLEAN DEFAULT false,
+  dry_run BOOLEAN DEFAULT false,
+  repository_allowlist TEXT,
+  repository_denylist TEXT,
+  order_index INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_access_automation_rules_order_index ON access_automation_rules(order_index);
+CREATE INDEX IF NOT EXISTS idx_access_automation_rules_target_org ON access_automation_rules(target_org);
 
 -- Indexes for cost centers and budgets
 CREATE INDEX IF NOT EXISTS idx_cost_centers_name ON cost_centers(name);

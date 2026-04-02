@@ -5,6 +5,11 @@
 import { query } from "@/lib/db";
 import type { WebhookEventEntity, CreateWebhookEventEntity } from "@/lib/entities/webhook-event";
 
+export interface WebhookProcessingOutcome {
+    summary: string;
+    details?: Record<string, unknown> | null;
+}
+
 /**
  * Create a new webhook event record.
  */
@@ -55,6 +60,22 @@ export async function markAsProcessed(id: number): Promise<void> {
     );
 }
 
+export async function markAsProcessedWithOutcome(
+    id: number,
+    outcome: WebhookProcessingOutcome
+): Promise<void> {
+    await query(
+        `UPDATE webhook_events
+         SET status = 'processed',
+             outcome_summary = $1,
+             outcome_details = $2,
+             error_message = NULL,
+             processed_at = NOW()
+         WHERE id = $3`,
+        [outcome.summary, outcome.details ? JSON.stringify(outcome.details) : null, id]
+    );
+}
+
 /**
  * Update webhook event status to failed with error message.
  */
@@ -64,6 +85,28 @@ export async function markAsFailed(id: number, errorMessage: string): Promise<vo
          SET status = 'failed', error_message = $1, processed_at = NOW()
          WHERE id = $2`,
         [errorMessage, id]
+    );
+}
+
+export async function markAsFailedWithOutcome(
+    id: number,
+    errorMessage: string,
+    outcome?: WebhookProcessingOutcome
+): Promise<void> {
+    await query(
+        `UPDATE webhook_events
+         SET status = 'failed',
+             error_message = $1,
+             outcome_summary = $2,
+             outcome_details = $3,
+             processed_at = NOW()
+         WHERE id = $4`,
+        [
+            errorMessage,
+            outcome?.summary ?? 'Processing failed',
+            outcome?.details ? JSON.stringify(outcome.details) : null,
+            id,
+        ]
     );
 }
 

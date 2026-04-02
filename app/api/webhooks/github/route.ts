@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
+import { getAccessAutomationWebhookSecret } from "@/lib/config/access-automation-config";
 import * as webhookEventRepo from "@/lib/repositories/webhook-event-repository";
 import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse } from "@/lib/types/github";
@@ -87,10 +88,10 @@ function verifySignature(payload: string, signature: string, secret: string): bo
  * Returns 200 immediately after storing - does NOT process the event.
  */
 export async function POST(request: NextRequest) {
-    const webhookSecret = process.env.WEBHOOK_SECRET;
+    const webhookSecret = getAccessAutomationWebhookSecret();
 
     if (!webhookSecret) {
-        console.error("WEBHOOK_SECRET environment variable is not set");
+        console.error("Webhook secret environment variable is not set");
         return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
     }
 
@@ -99,6 +100,13 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-hub-signature-256") || "";
     const event = request.headers.get("x-github-event") || "";
     const deliveryId = request.headers.get("x-github-delivery") || "";
+
+    if (!event || !deliveryId) {
+        return NextResponse.json(
+            { error: "Missing required GitHub webhook headers" },
+            { status: 400 }
+        );
+    }
 
     // Verify webhook signature
     if (!verifySignature(payload, signature, webhookSecret)) {
@@ -116,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     const action = typeof data.action === "string" ? data.action : null;
 
-    console.log(`Received webhook: ${event}.${action}`, { deliveryId });
+    console.log("Received GitHub webhook", { event, action, deliveryId });
 
     // Check for duplicate delivery (idempotency)
     try {
@@ -140,6 +148,16 @@ export async function POST(request: NextRequest) {
         });
         console.log(`Stored webhook event: ${webhookEvent.id}`);
     } catch (error) {
+        if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "23505"
+        ) {
+            console.log(`Duplicate webhook delivery ignored after insert race: ${deliveryId}`);
+            return NextResponse.json({ message: "Duplicate delivery ignored" }, { status: 200 });
+        }
+
         console.error("Failed to store webhook event:", error);
         // Return 500 so GitHub can retry
         return NextResponse.json({ error: "Failed to store event" }, { status: 500 });

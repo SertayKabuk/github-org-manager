@@ -61,6 +61,17 @@ A modern Next.js dashboard for managing GitHub organization teams and members wi
    
    # Base URL (runtime-configurable, defaults to localhost:3000)
    APP_URL=http://localhost:3000
+
+   # Database
+   DATABASE_URL=postgres://postgres:postgres@localhost:5432/github_org_manager
+
+   # Background automation auth (choose one mode)
+   GITHUB_SYSTEM_TOKEN=your_github_system_token
+   GITHUB_APP_ID=123456
+   GITHUB_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+   GITHUB_APP_INSTALLATION_ID=12345678
+
+   # GitHub webhook verification is configured in the admin UI after startup.
    ```
 
    **OAuth Setup**:
@@ -89,6 +100,28 @@ This application uses **GitHub OAuth** for secure authentication. Users must log
 - Automatic session management and token refresh
 
 After logging in, users can manage teams and members based on their GitHub organization permissions.
+
+## Webhook-driven repository access automation
+
+This project can automatically grant direct `admin` access based on a list of configured automation rules. Each rule can target a different organization/team/user combination.
+
+- Subscribe your GitHub organization or GitHub App webhook to `team`, `team_add`, and optionally `membership`
+- Point the webhook to `/api/webhooks/github`
+- Configure either:
+   - `GITHUB_SYSTEM_TOKEN`, or
+   - `GITHUB_APP_ID` + `GITHUB_PRIVATE_KEY` (+ `GITHUB_APP_INSTALLATION_ID` for non-installation contexts)
+- Configure the shared webhook secret plus your list of org/team/username rules in the admin UI at `/admin/access-automation`
+
+The automation rules are stored in the `access_automation_rules` database table. The webhook secret is still read from server environment variables.
+
+Supported automation behavior:
+
+- `team` + `added_to_repository` → grant direct admin access
+- `team_add` → grant direct admin access
+- `team` + `removed_from_repository` → optional revoke when `ENABLE_REVOKE_ON_REMOVE=true`
+- `membership` + `removed` → optional team-wide revoke sweep when `ENABLE_REVOKE_ON_TEAM_MEMBER_REMOVE=true`
+
+Every webhook delivery is deduplicated by `X-GitHub-Delivery`, stored in `webhook_events`, and processed asynchronously by the background webhook processor.
 
 ## Usage
 

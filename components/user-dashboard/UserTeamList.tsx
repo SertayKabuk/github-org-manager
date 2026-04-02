@@ -14,7 +14,7 @@ export function UserTeamList() {
   if (!teams || teams.length === 0) {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-        No teams found. You don't seem to be a member of any teams in this organization.
+        No teams found. You don&apos;t seem to be a member of any teams in this organization.
       </div>
     );
   }

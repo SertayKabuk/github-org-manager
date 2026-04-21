@@ -28,7 +28,7 @@ export default function BudgetList({ budgets, onDelete, deletingBudgetId = null,
           budget={budget}
           onDelete={onDelete}
           deleting={deletingBudgetId === budget.id}
-          spent={usageData[budget.id] || 0}
+          spent={usageData[budget.id]}
         />
       ))}
     </div>

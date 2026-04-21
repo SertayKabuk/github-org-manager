@@ -17,10 +17,13 @@ interface BudgetCardProps {
   spent?: number;
 }
 
-export default function BudgetCard({ budget, onDelete, deleting = false, spent = 0 }: BudgetCardProps) {
+export default function BudgetCard({ budget, onDelete, deleting = false, spent }: BudgetCardProps) {
+  const hasUsageData = spent !== undefined;
   const budgetAmount = budget.budget_amount;
-  const spentAmount = spent;
-  const percentage = budgetAmount > 0 ? Math.min((spentAmount / budgetAmount) * 100, 100) : 0;
+  const spentAmount = spent ?? 0;
+  const percentage = hasUsageData && budgetAmount > 0
+    ? Math.min((spentAmount / budgetAmount) * 100, 100)
+    : 0;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat(undefined, {
@@ -33,6 +36,7 @@ export default function BudgetCard({ budget, onDelete, deleting = false, spent =
 
   // Determine progress bar color based on percentage
   const getProgressColor = () => {
+    if (!hasUsageData) return "bg-muted-foreground/30";
     if (percentage >= 100) return "bg-red-500";
     if (percentage >= 80) return "bg-amber-500";
     return "bg-blue-500";
@@ -82,11 +86,11 @@ export default function BudgetCard({ budget, onDelete, deleting = false, spent =
             </div>
           </div>
           <Badge variant="outline" className="shrink-0 tabular-nums">
-            {percentage.toFixed(0)}%
+            {hasUsageData ? `${percentage.toFixed(0)}%` : "—"}
           </Badge>
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{formatCurrency(spentAmount)} spent</span>
+          <span>{hasUsageData ? `${formatCurrency(spentAmount)} spent` : "Usage unavailable"}</span>
           <span>{formatCurrency(budgetAmount)} budget</span>
         </div>
       </div>

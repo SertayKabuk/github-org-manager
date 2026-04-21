@@ -8,5 +8,6 @@ export { useCostCenters, type UseCostCentersOptions } from "./use-cost-centers";
 export { useBillingUsage, type UseBillingUsageOptions } from "./use-billing-usage";
 export { useUserEmailMappings } from "./use-user-email-mappings";
 export { useUserTeams } from "./use-user-teams";
+export { useUserBillingUsage, type UseUserBillingUsageOptions } from "./use-user-billing-usage";
 export { useUserCostCenter } from "./use-user-cost-center";
 export { useUserBudgets } from "./use-user-budgets";

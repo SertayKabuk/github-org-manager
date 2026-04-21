@@ -1,17 +1,32 @@
 'use client';
 
-import { useUserCostCenter, useUserBudgets } from "@/lib/hooks";
+import { useMemo } from "react";
+
+import BudgetList from "@/components/budgets/BudgetList";
 import { Loading } from "@/components/ui/Loading";
 import ErrorMessage from "@/components/ui/ErrorMessage";
-import BudgetCard from "@/components/budgets/BudgetCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { buildBudgetUsageMap } from "@/lib/budget-usage";
+import { useUserBillingUsage, useUserCostCenter, useUserBudgets } from "@/lib/hooks";
 import { Wallet } from "lucide-react";
 
 export function UserCostCenterSection() {
   const { data: costCenter, isLoading: ccLoading, error: ccError } = useUserCostCenter();
-  const { data: budgets, isLoading: bLoading, error: bError } = useUserBudgets();
+  const { data: budgets = [], isLoading: bLoading, error: bError } = useUserBudgets();
+  const {
+    data: usageSummary,
+    isLoading: usageLoading,
+    error: usageError,
+  } = useUserBillingUsage({ enabled: Boolean(costCenter) });
 
-  if (ccLoading || bLoading) return <Loading />;
+  const usageData = useMemo(
+    () => usageSummary ? buildBudgetUsageMap(budgets, usageSummary.usageItems) : {},
+    [budgets, usageSummary]
+  );
+
+  const shouldWaitForUsage = Boolean(costCenter && budgets.length > 0 && usageLoading && !usageError);
+
+  if (ccLoading || bLoading || shouldWaitForUsage) return <Loading />;
   if (ccError) return <ErrorMessage message={ccError.message} />;
   
   // Hide section entirely if no cost center is assigned
@@ -50,10 +65,9 @@ export function UserCostCenterSection() {
             No budgets defined for your cost center.
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {budgets.map((budget) => (
-              <BudgetCard key={budget.id} budget={budget} />
-            ))}
+          <div className="space-y-3">
+            {usageError && <ErrorMessage message={usageError.message} />}
+            <BudgetList budgets={budgets} usageData={usageData} />
           </div>
         )}
       </div>

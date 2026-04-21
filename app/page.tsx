@@ -1,6 +1,6 @@
 'use client';
 
-import { Github, LogIn, Mail } from "lucide-react";
+import { GitFork, LogIn, Mail } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,7 +31,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 mb-6">
-        <Github className="h-10 w-10 text-primary" />
+        <GitFork className="h-10 w-10 text-primary" />
       </div>
       <h1 className="text-3xl font-bold tracking-tight mb-2">GitHub Account Verification</h1>
       <p className="text-muted-foreground mb-8 max-w-md">
@@ -55,7 +55,7 @@ export default function Home() {
         </Card>
         <Card className="text-left">
           <CardHeader>
-            <Github className="h-8 w-8 text-primary mb-2" />
+            <GitFork className="h-8 w-8 text-primary mb-2" />
             <CardTitle className="text-lg">Quick & Secure</CardTitle>
           </CardHeader>
           <CardContent>

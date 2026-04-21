@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { Users, Layers, GitFork, Plus, ArrowRight, Github } from "lucide-react";
+import { Users, Layers, GitFork, Plus, ArrowRight } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +63,7 @@ export default function AdminDashboard() {
             <div>
                 <div className="flex items-center gap-3 mb-2">
                     <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60">
-                        <Github className="h-6 w-6 text-primary-foreground" />
+                        <GitFork className="h-6 w-6 text-primary-foreground" />
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">{org.name ?? org.login}</h1>

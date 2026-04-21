@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { Search, Mail, Github, Calendar, Download } from "lucide-react";
+import { Search, Mail, GitFork, Calendar, Download } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -193,7 +193,7 @@ export default function EmailMappingsPage() {
                                     <TableRow key={mapping.id}>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <Github className="h-4 w-4 text-muted-foreground" />
+                                                <GitFork className="h-4 w-4 text-muted-foreground" />
                                                 <a
                                                     href={`https://github.com/${mapping.github_username}`}
                                                     target="_blank"

@@ -10,11 +10,7 @@ const eslintConfig = defineConfig([
       react: {
         version: "19",
       },
-    },
-    rules: {
-      "react-hooks/immutability": "off",
-      "react-hooks/set-state-in-effect": "off",
-    },
+    }
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([

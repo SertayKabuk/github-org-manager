@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Save, Settings2, ShieldCheck, Trash2, Webhook } from 'lucide-react';
+import { Loader2, Plus, Save, ShieldCheck, Trash2, Webhook } from 'lucide-react';
 
 import { withBasePath } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

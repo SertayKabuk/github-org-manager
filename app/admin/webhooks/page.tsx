@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Webhook, Clock, CheckCircle, XCircle, RefreshCw, ChevronLeft, ChevronRight, Play, ChevronDown, ChevronUp } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import type { ApiResponse } from "@/lib/types/github";
 import type { WebhookEventEntity, WebhookEventStatus } from "@/lib/entities/webhook-event";
@@ -121,11 +122,7 @@ import { withBasePath } from "@/lib/utils";
 
 export default function WebhooksPage() {
     const { isAuthenticated } = useAuth();
-    const [events, setEvents] = useState<WebhookEventEntity[]>([]);
     const [expandedEventIds, setExpandedEventIds] = useState<number[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [total, setTotal] = useState(0);
     const [offset, setOffset] = useState(0);
 
     // Filters
@@ -137,12 +134,15 @@ export default function WebhooksPage() {
     const [processing, setProcessing] = useState(false);
     const [processMessage, setProcessMessage] = useState<string | null>(null);
 
-    const fetchEvents = useCallback(async () => {
-        if (!isAuthenticated) return;
-
-        setLoading(true);
-        setError(null);
-        try {
+    const {
+        data: paginatedResponse,
+        isLoading: loading,
+        error: eventsError,
+        refetch: refetchEvents,
+    } = useQuery({
+        queryKey: ["webhook-events", { statusFilter, eventTypeFilter, actionFilter, offset }],
+        enabled: isAuthenticated,
+        queryFn: async (): Promise<PaginatedWebhookResponse> => {
             const params = new URLSearchParams();
             if (statusFilter !== "all") params.set("status", statusFilter);
             if (eventTypeFilter !== "all") params.set("eventType", eventTypeFilter);
@@ -154,29 +154,40 @@ export default function WebhooksPage() {
             const response = await fetch(withBasePath(url));
             const data: ApiResponse<PaginatedWebhookResponse> = await response.json();
 
-            if (data.error) {
-                setError(data.error);
-            } else {
-                setEvents(data.data.events);
-                setTotal(data.data.total);
+            if (!response.ok) {
+                throw new Error(data.error ?? `Failed to fetch webhook events (${response.status})`);
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to fetch webhook events");
-        } finally {
-            setLoading(false);
-        }
-    }, [statusFilter, eventTypeFilter, actionFilter, offset, isAuthenticated]);
 
-    useEffect(() => {
-        if (isAuthenticated) {
-            fetchEvents();
-        }
-    }, [fetchEvents, isAuthenticated]);
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
-    // Reset offset when filters change
-    useEffect(() => {
+            return data.data;
+        },
+    });
+
+    const events = paginatedResponse?.events ?? [];
+    const total = paginatedResponse?.total ?? 0;
+    const error = eventsError instanceof Error
+        ? eventsError.message
+        : eventsError
+            ? "Failed to fetch webhook events"
+            : null;
+
+    const handleStatusFilterChange = (value: string) => {
         setOffset(0);
-    }, [statusFilter, eventTypeFilter, actionFilter]);
+        setStatusFilter(value);
+    };
+
+    const handleEventTypeFilterChange = (value: string) => {
+        setOffset(0);
+        setEventTypeFilter(value);
+    };
+
+    const handleActionFilterChange = (value: string) => {
+        setOffset(0);
+        setActionFilter(value);
+    };
 
     const handleProcess = async () => {
         setProcessing(true);
@@ -194,7 +205,7 @@ export default function WebhooksPage() {
             } else {
                 const { processed, failed } = data.data;
                 setProcessMessage(`Processed: ${processed}, Failed: ${failed}`);
-                fetchEvents();
+                await refetchEvents();
             }
         } catch (err) {
             setProcessMessage(`Error: ${err instanceof Error ? err.message : "Failed to process"}`);
@@ -241,7 +252,7 @@ export default function WebhooksPage() {
                             </CardDescription>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                                 <SelectTrigger className="w-[130px]">
                                     <SelectValue placeholder="Status" />
                                 </SelectTrigger>
@@ -253,7 +264,7 @@ export default function WebhooksPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                            <Select value={eventTypeFilter} onValueChange={handleEventTypeFilterChange}>
                                 <SelectTrigger className="w-[140px]">
                                     <SelectValue placeholder="Event Type" />
                                 </SelectTrigger>
@@ -265,7 +276,7 @@ export default function WebhooksPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <Select value={actionFilter} onValueChange={setActionFilter}>
+                            <Select value={actionFilter} onValueChange={handleActionFilterChange}>
                                 <SelectTrigger className="w-[160px]">
                                     <SelectValue placeholder="Action" />
                                 </SelectTrigger>
@@ -286,7 +297,7 @@ export default function WebhooksPage() {
                                 <Play className={`h-4 w-4 ${processing ? 'animate-pulse' : ''}`} />
                                 {processing ? "Processing..." : "Process Pending"}
                             </Button>
-                            <Button variant="outline" size="icon" onClick={fetchEvents}>
+                            <Button variant="outline" size="icon" onClick={() => void refetchEvents()}>
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
                         </div>

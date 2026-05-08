@@ -8,6 +8,8 @@ import { QueryProvider } from "@/lib/query-provider";
 
 import "./globals.css";
 
+const basePath = "/github";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -21,6 +23,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "GitHub Organization Manager",
   description: "Manage GitHub teams and members in a single dashboard.",
+  icons: {
+    icon: [{ url: `${basePath}/favicon.svg`, type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({

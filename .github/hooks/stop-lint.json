@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node .github/hooks/stop-lint.mjs",
+        "cwd": ".",
+        "timeout": 300
+      }
+    ]
+  }
+}

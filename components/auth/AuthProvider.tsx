@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { withBasePath } from "@/lib/utils";
 
 interface User {
@@ -27,39 +28,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+interface AuthStatusResponse {
+  authenticated: boolean;
+  user?: User | null;
+  scopes?: string[];
+  loginType?: LoginType;
+}
+
+interface AuthState {
+  user: User | null;
+  scopes: string[];
+  loginType: LoginType;
+}
+
+const EMPTY_AUTH_STATE: AuthState = {
+  user: null,
+  scopes: [],
+  loginType: null,
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [scopes, setScopes] = useState<string[]>([]);
-  const [loginType, setLoginType] = useState<LoginType>(null);
+  const queryClient = useQueryClient();
+  const authStatusQuery = useQuery({
+    queryKey: ["auth-status"],
+    queryFn: async (): Promise<AuthState> => {
+      try {
+        const response = await fetch(withBasePath("/api/auth/github/me"));
+        const data = (await response.json()) as AuthStatusResponse;
 
-  const fetchAuthStatus = async () => {
-    try {
-      const response = await fetch(withBasePath("/api/auth/github/me"));
-      const data = await response.json();
+        if (data.authenticated && data.user) {
+          return {
+            user: data.user,
+            scopes: data.scopes ?? [],
+            loginType: data.loginType ?? null,
+          };
+        }
 
-      if (data.authenticated && data.user) {
-        setUser(data.user);
-        setScopes(data.scopes || []);
-        setLoginType(data.loginType || null);
-      } else {
-        setUser(null);
-        setScopes([]);
-        setLoginType(null);
+        return EMPTY_AUTH_STATE;
+      } catch (error) {
+        console.error("Failed to fetch auth status:", error);
+        return EMPTY_AUTH_STATE;
       }
-    } catch (error) {
-      console.error("Failed to fetch auth status:", error);
-      setUser(null);
-      setScopes([]);
-      setLoginType(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
-  useEffect(() => {
-    fetchAuthStatus();
-  }, []);
+  const user = authStatusQuery.data?.user ?? null;
+  const scopes = authStatusQuery.data?.scopes ?? EMPTY_AUTH_STATE.scopes;
+  const loginType = authStatusQuery.data?.loginType ?? EMPTY_AUTH_STATE.loginType;
+  const isLoading = authStatusQuery.isLoading;
 
   const adminLogin = (returnTo?: string) => {
     const params = new URLSearchParams();
@@ -82,9 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await fetch(withBasePath("/api/auth/github/logout"), { method: "POST" });
-      setUser(null);
-      setScopes([]);
-      setLoginType(null);
+      queryClient.setQueryData(["auth-status"], EMPTY_AUTH_STATE);
       window.location.href = withBasePath("/");
     } catch (error) {
       console.error("Logout failed:", error);
@@ -92,8 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshAuth = async () => {
-    setIsLoading(true);
-    await fetchAuthStatus();
+    await authStatusQuery.refetch();
   };
 
   const isAdmin = loginType === 'admin' || scopes.includes('admin:org');

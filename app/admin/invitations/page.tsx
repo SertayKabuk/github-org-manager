@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Mail, UserPlus, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw, CloudDownload } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import type { ApiResponse, Invitation, InvitationStatus, CreateInvitationInput } from "@/lib/types/github";
 import { Button } from "@/components/ui/button";
@@ -82,9 +83,6 @@ import { withBasePath } from "@/lib/utils";
 
 export default function InvitationsPage() {
     const { isAuthenticated } = useAuth();
-    const [invitations, setInvitations] = useState<Invitation[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<string>("all");
 
     // Form state
@@ -98,35 +96,38 @@ export default function InvitationsPage() {
     const [syncing, setSyncing] = useState(false);
     const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-    const fetchInvitations = useCallback(async () => {
-        if (!isAuthenticated) return;
-
-        setLoading(true);
-        setError(null);
-        try {
+    const {
+        data: invitations = [],
+        isLoading: loading,
+        error: invitationsError,
+        refetch: refetchInvitations,
+    } = useQuery({
+        queryKey: ["invitations", { statusFilter }],
+        enabled: isAuthenticated,
+        queryFn: async (): Promise<Invitation[]> => {
             const url = statusFilter === "all"
                 ? "/api/invitations"
                 : `/api/invitations?status=${statusFilter}`;
             const response = await fetch(withBasePath(url));
             const data: ApiResponse<Invitation[]> = await response.json();
 
-            if (data.error) {
-                setError(data.error);
-            } else {
-                setInvitations(data.data);
+            if (!response.ok) {
+                throw new Error(data.error ?? `Failed to fetch invitations (${response.status})`);
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to fetch invitations");
-        } finally {
-            setLoading(false);
-        }
-    }, [statusFilter, isAuthenticated]);
 
-    useEffect(() => {
-        if (isAuthenticated) {
-            fetchInvitations();
-        }
-    }, [fetchInvitations, isAuthenticated]);
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            return data.data;
+        },
+    });
+
+    const error = invitationsError instanceof Error
+        ? invitationsError.message
+        : invitationsError
+            ? "Failed to fetch invitations"
+            : null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -148,7 +149,7 @@ export default function InvitationsPage() {
             } else {
                 setFormSuccess(`Invitation sent to ${email}`);
                 setEmail("");
-                fetchInvitations();
+                await refetchInvitations();
             }
         } catch (err) {
             setFormError(err instanceof Error ? err.message : "Failed to send invitation");
@@ -177,7 +178,7 @@ export default function InvitationsPage() {
                     `Updated: ${markedAsAccepted} accepted, ${markedAsFailed} failed. ` +
                     `Imported: ${newFromGitHub} new.`
                 );
-                fetchInvitations();
+                await refetchInvitations();
             }
         } catch (err) {
             setSyncMessage(`Error: ${err instanceof Error ? err.message : "Failed to sync"}`);
@@ -277,7 +278,7 @@ export default function InvitationsPage() {
                                 <CloudDownload className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
                                 {syncing ? "Syncing..." : "Sync with GitHub"}
                             </Button>
-                            <Button variant="outline" size="icon" onClick={fetchInvitations}>
+                            <Button variant="outline" size="icon" onClick={() => void refetchInvitations()}>
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
                         </div>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Filter, Plus, RefreshCcw } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import BudgetList from "@/components/budgets/BudgetList";
 import CreateBudgetForm from "@/components/budgets/CreateBudgetForm";
@@ -32,7 +32,6 @@ export default function BudgetsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
-  const [usageData, setUsageData] = useState<Record<string, number>>({});
 
   const {
     data: budgets = [],
@@ -56,65 +55,87 @@ export default function BudgetsPage() {
     );
   }, [costCenters]);
 
-  // Load usage data for cost center budgets
-  const loadUsageData = useCallback(async () => {
-    const costCenterBudgets = budgets.filter(
-      (budget) => budget.budget_scope === "cost_center" && budget.budget_entity_name
-    );
+  const costCenterBudgets = useMemo(
+    () =>
+      budgets
+        .filter(
+          (budget) => budget.budget_scope === "cost_center" && budget.budget_entity_name
+        )
+        .map((budget) => ({
+          id: budget.id,
+          budgetType: budget.budget_type,
+          budgetProductSku: budget.budget_product_sku ?? null,
+          budgetEntityName: budget.budget_entity_name ?? null,
+          costCenterId: budget.budget_entity_name
+            ? costCenterNameToId[budget.budget_entity_name] ?? null
+            : null,
+        })),
+    [budgets, costCenterNameToId]
+  );
 
-    if (costCenterBudgets.length === 0) return;
+  const hasCostCenterMappings = Object.keys(costCenterNameToId).length > 0;
 
-    const usagePromises = costCenterBudgets.map(async (budget) => {
-      try {
-        const costCenterId = costCenterNameToId[budget.budget_entity_name!];
-        if (!costCenterId) {
-          console.warn(`No cost center ID found for name: ${budget.budget_entity_name}`);
-          return { budgetId: budget.id, spent: 0 };
-        }
+  const {
+    data: usageData = {},
+    refetch: refetchUsageData,
+    isFetching: usageLoading,
+  } = useQuery({
+    queryKey: ["budget-usage-map", costCenterBudgets],
+    enabled: costCenterBudgets.length > 0 && hasCostCenterMappings,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const results = await Promise.all(
+        costCenterBudgets.map(async (budget) => {
+          if (!budget.costCenterId) {
+            console.warn(`No cost center ID found for name: ${budget.budgetEntityName}`);
+            return { budgetId: budget.id, spent: 0 };
+          }
 
-        const response = await fetch(
-          withBasePath(`/api/billing-usage?costCenterId=${encodeURIComponent(costCenterId)}`)
-        );
+          try {
+            const response = await fetch(
+              withBasePath(
+                `/api/billing-usage?costCenterId=${encodeURIComponent(budget.costCenterId)}`
+              )
+            );
 
-        if (!response.ok) {
-          console.warn(`Failed to fetch usage for ${budget.budget_entity_name}`);
-          return { budgetId: budget.id, spent: 0 };
-        }
+            if (!response.ok) {
+              console.warn(`Failed to fetch usage for ${budget.budgetEntityName}`);
+              return { budgetId: budget.id, spent: 0 };
+            }
 
-        const json = await response.json();
-        const usageItems = json.data?.usageItems as BillingUsageItem[] || [];
+            const json = (await response.json()) as ApiResponse<{
+              usageItems?: BillingUsageItem[];
+            } | null>;
+            const usageItems = json.data?.usageItems ?? [];
+            const spent = getSpentAmountForBudget(
+              {
+                budget_product_sku: budget.budgetProductSku ?? undefined,
+                budget_type: budget.budgetType,
+              },
+              usageItems
+            );
 
-        const totalSpent = getSpentAmountForBudget(budget, usageItems);
+            return { budgetId: budget.id, spent };
+          } catch (err) {
+            console.error(`Error fetching usage for ${budget.budgetEntityName}:`, err);
+            return { budgetId: budget.id, spent: 0 };
+          }
+        })
+      );
 
-        return { budgetId: budget.id, spent: totalSpent };
-      } catch (err) {
-        console.error(`Error fetching usage for ${budget.budget_entity_name}:`, err);
-        return { budgetId: budget.id, spent: 0 };
-      }
-    });
-
-    const results = await Promise.all(usagePromises);
-    const usageMap = results.reduce(
-      (acc, { budgetId, spent }) => {
+      return results.reduce<Record<string, number>>((acc, { budgetId, spent }) => {
         acc[budgetId] = spent;
         return acc;
-      },
-      {} as Record<string, number>
-    );
+      }, {});
+    },
+  });
 
-    setUsageData(usageMap);
-  }, [budgets, costCenterNameToId]);
-
-  // Load usage data when budgets or cost centers change
-  useEffect(() => {
-    if (budgets.length > 0 && Object.keys(costCenterNameToId).length > 0) {
-      loadUsageData();
-    }
-  }, [budgets, costCenterNameToId, loadUsageData]);
-
-  const handleRefresh = () => {
-    refetchBudgets();
-    loadUsageData();
+  const handleRefresh = async () => {
+    await Promise.all([
+      refetchBudgets(),
+      costCenterBudgets.length > 0 && hasCostCenterMappings
+        ? refetchUsageData()
+        : Promise.resolve(null),
+    ]);
   };
 
   const handleDeleteRequest = (budget: Budget) => {
@@ -144,8 +165,10 @@ export default function BudgetsPage() {
         throw new Error(json?.data.message ?? `Failed to delete budget (${response.status})`);
       }
 
-      // Invalidate budgets cache
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["budgets"] }),
+        queryClient.invalidateQueries({ queryKey: ["budget-usage-map"] }),
+      ]);
       setDeleteDialogOpen(false);
       setSelectedBudget(null);
     } catch (err) {
@@ -176,8 +199,10 @@ export default function BudgetsPage() {
       }
 
       setShowCreateForm(false);
-      // Invalidate budgets cache
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["budgets"] }),
+        queryClient.invalidateQueries({ queryKey: ["budget-usage-map"] }),
+      ]);
     } catch (err) {
       console.error(err);
       setActionError(err instanceof Error ? err.message : "Failed to create budget.");
@@ -229,7 +254,7 @@ export default function BudgetsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+          <Button variant="outline" onClick={() => void handleRefresh()} disabled={loading || usageLoading}>
             <RefreshCcw className="mr-2 h-4 w-4" />
             Refresh
           </Button>

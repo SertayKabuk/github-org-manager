@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Search, UserPlus, UserMinus } from "lucide-react";
 import {
   DndContext,
@@ -68,6 +68,26 @@ export default function TeamMemberManager({
   initialTeamMembers,
   initialOrgMembers,
 }: TeamMemberManagerProps) {
+  const teamMembersKey = initialTeamMembers
+    .map((member) => `${member.login}:${member.role ?? ""}`)
+    .join("|");
+  const orgMembersKey = initialOrgMembers.map((member) => member.login).join("|");
+
+  return (
+    <TeamMemberManagerContent
+      key={`${teamSlug}:${teamMembersKey}:${orgMembersKey}`}
+      teamSlug={teamSlug}
+      initialTeamMembers={initialTeamMembers}
+      initialOrgMembers={initialOrgMembers}
+    />
+  );
+}
+
+function TeamMemberManagerContent({
+  teamSlug,
+  initialTeamMembers,
+  initialOrgMembers,
+}: TeamMemberManagerProps) {
   const [teamMembers, setTeamMembers] = useState<GitHubMember[]>(() =>
     sanitizeMembers(initialTeamMembers)
   );
@@ -77,18 +97,6 @@ export default function TeamMemberManager({
       initialOrgMembers.filter((member) => !teamLogins.has(member.login))
     );
   });
-  useEffect(() => {
-    setTeamMembers(sanitizeMembers(initialTeamMembers));
-  }, [initialTeamMembers]);
-
-  useEffect(() => {
-    const teamLogins = new Set(initialTeamMembers.map((member) => member.login));
-    setAvailableMembers(
-      sanitizeMembers(
-        initialOrgMembers.filter((member) => !teamLogins.has(member.login))
-      )
-    );
-  }, [initialOrgMembers, initialTeamMembers]);
   const [teamSearch, setTeamSearch] = useState("");
   const [availableSearch, setAvailableSearch] = useState("");
   const [feedback, setFeedback] = useState<Feedback>(null);

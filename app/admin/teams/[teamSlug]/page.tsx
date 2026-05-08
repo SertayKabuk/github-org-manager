@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ArrowLeft, Save, Trash2, RotateCcw } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { withBasePath } from "@/lib/utils";
-
 import TeamMemberManager from "@/components/teams/TeamMemberManager";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import ErrorMessage from "@/components/ui/ErrorMessage";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -17,36 +19,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import ErrorMessage from "@/components/ui/ErrorMessage";
-import { Button } from "@/components/ui/button";
-import { useTeam, useTeamMembers, useMembers } from "@/lib/hooks";
+import { useMembers, useTeam, useTeamMembers } from "@/lib/hooks";
+import { withBasePath } from "@/lib/utils";
 
-import type { ApiResponse, GitHubTeam, TeamPrivacy } from "@/lib/types/github";
+import type { ApiResponse, GitHubMember, GitHubTeam, TeamPrivacy } from "@/lib/types/github";
 
 type TeamResponse = ApiResponse<GitHubTeam>;
 
 export default function TeamDetailsPage() {
   const params = useParams<{ teamSlug: string }>();
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const teamSlug = params?.teamSlug;
-
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [formState, setFormState] = useState<{
-    name: string;
-    description: string;
-    privacy: TeamPrivacy;
-  } | null>(null);
 
   const {
     data: team,
     isLoading: teamLoading,
     error: teamError,
-    refetch: refetchTeam,
   } = useTeam(teamSlug);
 
   const {
@@ -62,33 +49,73 @@ export default function TeamDetailsPage() {
   } = useMembers();
 
   const loading = teamLoading || teamMembersLoading || orgMembersLoading;
-  const error = teamError || teamMembersError || orgMembersError || actionError;
+  const error = teamError || teamMembersError || orgMembersError;
 
-  // Initialize form state when team data loads
-  useEffect(() => {
-    if (team && !formState) {
-      setFormState({
-        name: team.name,
-        description: team.description ?? "",
-        privacy: team.privacy,
-      });
-    }
-  }, [team, formState]);
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-64" />
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
 
-  const handleReset = () => {
-    if (team) {
-      setFormState({
-        name: team.name,
-        description: team.description ?? "",
-        privacy: team.privacy,
-      });
-    }
-    refetchTeam();
-  };
+  if (error) {
+    return <ErrorMessage message={error instanceof Error ? error.message : error} />;
+  }
 
-  const handleUpdateTeam = async () => {
-    if (!teamSlug || !formState) return;
+  if (!team || !teamSlug) {
+    return <ErrorMessage message="Team not found." />;
+  }
 
+  return (
+    <TeamDetailsContent
+      key={`${team.slug}:${team.name}:${team.description ?? ""}:${team.privacy}`}
+      team={team}
+      teamSlug={teamSlug}
+      teamMembers={teamMembers}
+      orgMembers={orgMembers}
+    />
+  );
+}
+
+function TeamDetailsContent({
+  team,
+  teamSlug,
+  teamMembers,
+  orgMembers,
+}: {
+  team: GitHubTeam;
+  teamSlug: string;
+  teamMembers: GitHubMember[];
+  orgMembers: GitHubMember[];
+}) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [formState, setFormState] = useState<{
+    name: string;
+    description: string;
+    privacy: TeamPrivacy;
+  }>(() => ({
+    name: team.name,
+    description: team.description ?? "",
+    privacy: team.privacy,
+  }));
+
+  function handleReset() {
+    setFormState({
+      name: team.name,
+      description: team.description ?? "",
+      privacy: team.privacy,
+    });
+    void queryClient.invalidateQueries({ queryKey: ["teams", teamSlug] });
+  }
+
+  async function handleUpdateTeam() {
     setSaving(true);
     setActionError(null);
     try {
@@ -108,26 +135,22 @@ export default function TeamDetailsPage() {
       }
 
       const json = (await response.json()) as TeamResponse;
+      queryClient.setQueryData(["teams", teamSlug], json.data);
       setFormState({
         name: json.data.name,
         description: json.data.description ?? "",
         privacy: json.data.privacy,
       });
-
-      // Invalidate team cache to refetch
-      queryClient.invalidateQueries({ queryKey: ["teams", teamSlug] });
-      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
     } catch (err) {
       console.error(err);
       setActionError(err instanceof Error ? err.message : "Failed to update team.");
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handleDeleteTeam = async () => {
-    if (!teamSlug || !team) return;
-
+  async function handleDeleteTeam() {
     const confirmed = window.confirm(
       `Delete team "${team.name}"? This will remove all its memberships.`
     );
@@ -143,8 +166,7 @@ export default function TeamDetailsPage() {
         throw new Error(json?.error ?? `Failed to delete team (${response.status})`);
       }
 
-      // Invalidate teams cache
-      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
       router.push("/teams");
     } catch (err) {
       console.error(err);
@@ -152,29 +174,6 @@ export default function TeamDetailsPage() {
     } finally {
       setDeleting(false);
     }
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-64" />
-        <Skeleton className="h-96" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <ErrorMessage
-        message={error instanceof Error ? error.message : error}
-        onDismiss={() => setActionError(null)}
-      />
-    );
-  }
-
-  if (!team || !formState) {
-    return <ErrorMessage message="Team not found." />;
   }
 
   return (
@@ -194,6 +193,10 @@ export default function TeamDetailsPage() {
         </Button>
       </div>
 
+      {actionError && (
+        <ErrorMessage message={actionError} onDismiss={() => setActionError(null)} />
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Team Settings</CardTitle>
@@ -206,9 +209,7 @@ export default function TeamDetailsPage() {
               <Input
                 value={formState.name}
                 onChange={(event) =>
-                  setFormState((state) =>
-                    state ? { ...state, name: event.target.value } : state
-                  )
+                  setFormState((state) => ({ ...state, name: event.target.value }))
                 }
               />
             </div>
@@ -217,9 +218,7 @@ export default function TeamDetailsPage() {
               <Input
                 value={formState.description}
                 onChange={(event) =>
-                  setFormState((state) =>
-                    state ? { ...state, description: event.target.value } : state
-                  )
+                  setFormState((state) => ({ ...state, description: event.target.value }))
                 }
                 placeholder="Team description"
               />
@@ -229,9 +228,7 @@ export default function TeamDetailsPage() {
               <Select
                 value={formState.privacy}
                 onValueChange={(value) =>
-                  setFormState((state) =>
-                    state ? { ...state, privacy: value as TeamPrivacy } : state
-                  )
+                  setFormState((state) => ({ ...state, privacy: value as TeamPrivacy }))
                 }
               >
                 <SelectTrigger>
@@ -245,21 +242,17 @@ export default function TeamDetailsPage() {
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={handleReset} disabled={saving}>
               <RotateCcw className="mr-2 h-4 w-4" />
               Reset
             </Button>
-            <Button onClick={handleUpdateTeam} disabled={saving}>
+            <Button onClick={() => void handleUpdateTeam()} disabled={saving}>
               <Save className="mr-2 h-4 w-4" />
               {saving ? "Saving..." : "Save changes"}
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDeleteTeam}
+              onClick={() => void handleDeleteTeam()}
               disabled={deleting}
             >
               <Trash2 className="mr-2 h-4 w-4" />

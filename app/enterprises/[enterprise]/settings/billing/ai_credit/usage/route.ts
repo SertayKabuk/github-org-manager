@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedOctokit } from "@/lib/octokit";
 import { requireAdmin } from "@/lib/auth/helpers";
 
+interface AiCreditUsageResponse {
+  timePeriod?: {
+    year: number;
+    month: number;
+  };
+  enterprise?: string;
+  usageItems?: unknown[];
+}
+
 type RouteParams = Promise<{ enterprise: string }>;
 
 interface RouteContext {
@@ -37,7 +46,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     );
 
-    const rawData = response.data as any;
+    const rawData = response.data as AiCreditUsageResponse;
 
     const payload = {
       timePeriod: rawData.timePeriod || {

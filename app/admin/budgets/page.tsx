@@ -19,6 +19,28 @@ import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, Creat
 type BudgetCreationResponse = ApiResponse<BudgetCreateResult>;
 type BudgetDeleteResponse = ApiResponse<BudgetDeleteResult>;
 
+type BudgetAlertingInput = CreateBudgetInput["budget_alerting"];
+
+interface BudgetTransferInput {
+  fromUser: string;
+  fromUserBudgetId: string | null;
+  fromUserSpent: number;
+  remaining: number;
+  fromUserBudgetScope?: string;
+  fromUserAlerting?: BudgetAlertingInput;
+}
+
+interface BudgetTransaction {
+  id: number;
+  transaction_type: "create" | "transfer";
+  from_user: string | null;
+  to_user: string | null;
+  amount: number;
+  transferred_amount: number;
+  note: string | null;
+  created_at: string;
+}
+
 type ScopeFilter = "all" | BudgetScope;
 
 import { withBasePath } from "@/lib/utils";
@@ -48,12 +70,12 @@ export default function BudgetsPage() {
     refetch: refetchTransactions,
   } = useQuery({
     queryKey: ["budget-transactions"],
-    queryFn: async (): Promise<any[]> => {
+    queryFn: async (): Promise<BudgetTransaction[]> => {
       const response = await fetch(withBasePath("/api/budgets/transactions"));
       if (!response.ok) {
         throw new Error("Failed to fetch budget transactions.");
       }
-      const json = await response.json();
+      const json = (await response.json()) as ApiResponse<BudgetTransaction[]>;
       return json.data || [];
     },
   });
@@ -202,14 +224,7 @@ export default function BudgetsPage() {
   };
 
   const handleCreateBudget = async (data: CreateBudgetInput & {
-    transfer?: {
-      fromUser: string;
-      fromUserBudgetId: string;
-      fromUserSpent: number;
-      remaining: number;
-      fromUserBudgetScope?: string;
-      fromUserAlerting?: any;
-    }
+    transfer?: BudgetTransferInput;
   }) => {
     setCreating(true);
     setActionError(null);
@@ -383,7 +398,7 @@ export default function BudgetsPage() {
             <p className="text-sm text-muted-foreground text-center py-4">No budget transactions recorded yet.</p>
           ) : (
             <div className="divide-y text-sm">
-              {transactions.map((tx: any) => {
+              {transactions.map((tx) => {
                 const isTxTransfer = tx.transaction_type === "transfer";
                 const date = new Date(tx.created_at).toLocaleString();
                 return (

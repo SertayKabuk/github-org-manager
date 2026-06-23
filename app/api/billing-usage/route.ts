@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { getEnterpriseName, getBillingOctokit } from "@/lib/octokit";
 import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, BillingUsageSummary } from "@/lib/types/github";
+
+interface BillingUsageApiResponse {
+    timePeriod?: BillingUsageSummary["timePeriod"];
+    enterprise?: string;
+    usageItems?: BillingUsageSummary["usageItems"];
+}
 
 export async function GET(request: NextRequest) {
     // Check authentication
@@ -15,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     try {
         const enterprise = getEnterpriseName();
-        const octokit = await getAuthenticatedOctokit();
+        const octokit = await getBillingOctokit();
 
         if (user || aiCredits) {
             try {
@@ -30,7 +36,7 @@ export async function GET(request: NextRequest) {
                     }
                 );
 
-                const rawData = response.data as any;
+                const rawData = response.data as BillingUsageApiResponse;
                 const payload: ApiResponse<BillingUsageSummary> = {
                     data: {
                         timePeriod: rawData.timePeriod || {

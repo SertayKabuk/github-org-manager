@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { getEnterpriseName, getBillingOctokit } from "@/lib/octokit";
 import { requireAdmin } from "@/lib/auth/helpers";
 import type {
   ApiResponse,
@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types/github";
 import { mapBudget, RawBudgetPayload } from "./transformers";
 import { query as dbQuery } from "@/lib/db";
+import { fetchBillingPaginatedItems } from "@/lib/github-paginated-response";
 
 const BUDGET_SCOPES = new Set<BudgetScope>(["enterprise", "organization", "repository", "cost_center", "user", "multi_user_customer"]);
 const BUDGET_TYPES = new Set<BudgetType>(["ProductPricing", "SkuPricing", "BundlePricing"]);
@@ -21,6 +22,17 @@ interface GitHubCreateBudgetResponse {
   budget?: RawBudgetPayload;
   budget_id?: string;
   id?: string;
+}
+
+type BudgetAlertingInput = CreateBudgetInput["budget_alerting"];
+
+interface BudgetTransferInput {
+  fromUser: string;
+  fromUserBudgetId: string;
+  fromUserSpent: number;
+  remaining: number;
+  fromUserBudgetScope?: string;
+  fromUserAlerting?: BudgetAlertingInput;
 }
 
 function validateBudgetPayload(body: CreateBudgetInput): string | null {
@@ -61,16 +73,18 @@ export async function GET() {
 
   try {
     const enterprise = getEnterpriseName();
-    const octokit = await getAuthenticatedOctokit();
-
-    const response = await octokit.request("GET /enterprises/{enterprise}/settings/billing/budgets", {
-      enterprise,
-      headers: {
-        "X-GitHub-Api-Version": "2022-11-28",
+    const octokit = await getBillingOctokit();
+    const budgetsRaw = await fetchBillingPaginatedItems<RawBudgetPayload>({
+      request: octokit.request,
+      route: "GET /enterprises/{enterprise}/settings/billing/budgets",
+      dataKey: "budgets",
+      parameters: {
+        enterprise,
+        headers: {
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
       },
     });
-
-    const budgetsRaw = Array.isArray(response.data?.budgets) ? response.data.budgets : [];
     const data: Budget[] = budgetsRaw.map(mapBudget);
 
     return NextResponse.json<ApiResponse<Budget[]>>({ data }, { status: 200 });
@@ -89,14 +103,7 @@ export async function POST(request: NextRequest) {
   if (authError) return authError;
 
   let body: CreateBudgetInput & {
-    transfer?: {
-      fromUser: string;
-      fromUserBudgetId: string;
-      fromUserSpent: number;
-      remaining: number;
-      fromUserBudgetScope?: string;
-      fromUserAlerting?: any;
-    };
+    transfer?: BudgetTransferInput;
   };
 
   try {
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const enterprise = getEnterpriseName();
-    const octokit = await getAuthenticatedOctokit();
+    const octokit = await getBillingOctokit();
 
     if (body.transfer) {
       const {

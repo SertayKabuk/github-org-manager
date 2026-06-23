@@ -41,6 +41,19 @@ export async function getAuthenticatedOctokit(): Promise<Octokit> {
   });
 }
 
+/**
+ * Creates an Octokit instance for enterprise billing APIs.
+ * Prefers the system token when available because billing visibility can differ
+ * from user OAuth tokens, and falls back to the authenticated session token.
+ */
+export async function getBillingOctokit(): Promise<Octokit> {
+  if (process.env.GITHUB_SYSTEM_TOKEN?.trim()) {
+    return getSystemOctokit();
+  }
+
+  return getAuthenticatedOctokit();
+}
+
 /** Returns the configured organization login or throws if missing. */
 export function getOrgName(): string {
   const org = process.env.GITHUB_ORG;

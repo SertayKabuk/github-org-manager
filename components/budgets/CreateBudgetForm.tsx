@@ -20,15 +20,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type BudgetAlertingInput = CreateBudgetInput["budget_alerting"];
+
+interface BudgetTransferInput {
+  fromUser: string;
+  fromUserBudgetId: string | null;
+  fromUserSpent: number;
+  remaining: number;
+  fromUserBudgetScope?: string;
+  fromUserAlerting?: BudgetAlertingInput;
+}
+
+type BudgetFormSubmitInput = CreateBudgetInput & {
+  transfer?: BudgetTransferInput;
+};
+
 interface CreateBudgetFormProps {
-  onSubmit: (data: CreateBudgetInput & {
-    transfer?: {
-      fromUser: string;
-      fromUserBudgetId: string;
-      fromUserSpent: number;
-      remaining: number;
-    }
-  }) => Promise<void> | void;
+  onSubmit: (data: BudgetFormSubmitInput) => Promise<void> | void;
   onCancel: () => void;
   loading?: boolean;
   budgets: Budget[];
@@ -253,7 +261,7 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
 
     setError(null);
 
-    const submitData: any = {
+    const submitData: BudgetFormSubmitInput = {
       ...form,
       budget_amount: Number(form.budget_amount),
       budget_entity_name: form.budget_entity_name?.trim() ?? "",

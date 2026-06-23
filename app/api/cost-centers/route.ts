@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
 import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, CostCenter, CreateCostCenterInput, CostCenterState } from "@/lib/types/github";
+import { fetchBillingPaginatedItems } from "@/lib/github-paginated-response";
 
 const STATE_FILTERS = new Set(["active", "deleted"] as const);
 
@@ -25,18 +26,18 @@ export async function GET(request: NextRequest) {
     const enterprise = getEnterpriseName();
     const octokit = await getAuthenticatedOctokit();
 
-    const response = await octokit.request(
-      "GET /enterprises/{enterprise}/settings/billing/cost-centers",
-      {
+    const data = await fetchBillingPaginatedItems<CostCenter>({
+      request: octokit.request,
+      route: "GET /enterprises/{enterprise}/settings/billing/cost-centers",
+      dataKey: "costCenters",
+      parameters: {
         enterprise,
         state: stateParam || undefined,
         headers: {
           "X-GitHub-Api-Version": "2022-11-28",
         },
-      }
-    );
-
-    const data: CostCenter[] = response.data.costCenters || [];
+      },
+    });
 
     return NextResponse.json<ApiResponse<CostCenter[]>>({ data }, { status: 200 });
   } catch (error) {

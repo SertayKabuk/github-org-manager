@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getEnterpriseName, getAuthenticatedOctokit } from "@/lib/octokit";
+import { getEnterpriseName, getBillingOctokit } from "@/lib/octokit";
 import { requireAdmin } from "@/lib/auth/helpers";
 import type { ApiResponse, BudgetDeleteResult } from "@/lib/types/github";
 
@@ -35,7 +35,7 @@ export async function DELETE(
 
   try {
     const enterprise = getEnterpriseName();
-    const octokit = await getAuthenticatedOctokit();
+    const octokit = await getBillingOctokit();
 
     const response = await octokit.request(
       "DELETE /enterprises/{enterprise}/settings/billing/budgets/{budget_id}",

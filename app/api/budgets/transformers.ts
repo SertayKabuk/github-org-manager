@@ -5,6 +5,7 @@ export interface RawBudgetPayload {
   budget_id?: string;
   budget_scope?: Budget["budget_scope"];
   budget_entity_name?: string;
+  user?: string;
   budget_amount?: number | string;
   prevent_further_usage?: boolean;
   budget_type?: Budget["budget_type"];
@@ -17,10 +18,14 @@ export interface RawBudgetPayload {
 }
 
 export function mapBudget(payload: RawBudgetPayload): Budget {
+  const scope = payload?.budget_scope ?? "enterprise";
   return {
     id: String(payload?.id ?? payload?.budget_id ?? ""),
-    budget_scope: payload?.budget_scope ?? "enterprise",
-    budget_entity_name: payload?.budget_entity_name ?? "",
+    budget_scope: scope,
+    budget_entity_name: scope === "user"
+      ? payload?.user ?? payload?.budget_entity_name ?? ""
+      : payload?.budget_entity_name ?? "",
+    user: payload?.user,
     budget_amount: typeof payload?.budget_amount === "number"
       ? payload.budget_amount
       : Number(payload?.budget_amount ?? 0),

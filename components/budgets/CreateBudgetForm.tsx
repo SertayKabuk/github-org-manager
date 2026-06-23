@@ -1,21 +1,17 @@
 'use client';
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
 
-import { withBasePath } from "@/lib/utils";
-
-import type {
-  BudgetScope,
-  BudgetType,
-  CreateBudgetInput,
-  CostCenter,
-} from "@/lib/types/github";
-import { SkuName } from "@/lib/types/github";
+import type { CreateBudgetInput, Budget } from "@/lib/types/github";
+import { useMembers } from "@/lib/hooks";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { getSpentAmountForBudget } from "@/lib/budget-usage";
+import { withBasePath } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -24,97 +20,187 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const scopeOptions: { label: string; value: BudgetScope }[] = [
-  { label: "Enterprise", value: "enterprise" },
-  { label: "Organization", value: "organization" },
-  { label: "Repository", value: "repository" },
-  { label: "Cost Center", value: "cost_center" },
-];
-
-const typeOptions: { label: string; value: BudgetType }[] = [
-  { label: "Product Pricing", value: "ProductPricing" },
-  { label: "SKU Pricing", value: "SkuPricing" },
-  { label: "Bundle Pricing", value: "BundlePricing" },
-];
-
-const PRODUCT_PRICING_SKUS = [
-  { value: "actions", label: "GitHub Actions" },
-  { value: "packages", label: "GitHub Packages" },
-  { value: "codespaces", label: "GitHub Codespaces" },
-  { value: "copilot", label: "GitHub Copilot" },
-  { value: "ghas", label: "GitHub Advanced Security" },
-  { value: "ghec", label: "GitHub Enterprise Cloud" },
-] as const;
-
-const SKU_PRICING_SKUS = [
-  { value: SkuName.copilot_agent_premium_request, label: "Copilot Agent Premium Request" },
-  { value: SkuName.copilot_enterprise, label: "Copilot Enterprise" },
-  { value: SkuName.copilot_for_business, label: "Copilot for Business" },
-  { value: SkuName.copilot_premium_request, label: "Copilot Premium Request" },
-  { value: SkuName.copilot_standalone, label: "Copilot Standalone" },
-  { value: SkuName.models_inference, label: "Models Inference" },
-  { value: SkuName.spark_premium_request, label: "Spark Premium Request" },
-] as const;
-
-const BUNDLE_PRICING_SKUS = [
-  { value: "premium_requests", label: "Copilot premium requests/Coding Agent premium requests/Spark premium requests" },
-] as const;
-
-const SKU_OPTIONS: Record<BudgetType, readonly { value: string; label: string }[]> = {
-  ProductPricing: PRODUCT_PRICING_SKUS,
-  SkuPricing: SKU_PRICING_SKUS,
-  BundlePricing: BUNDLE_PRICING_SKUS,
-};
-
 interface CreateBudgetFormProps {
-  onSubmit: (data: CreateBudgetInput) => Promise<void> | void;
+  onSubmit: (data: CreateBudgetInput & {
+    transfer?: {
+      fromUser: string;
+      fromUserBudgetId: string;
+      fromUserSpent: number;
+      remaining: number;
+    }
+  }) => Promise<void> | void;
   onCancel: () => void;
   loading?: boolean;
+  budgets: Budget[];
 }
 
-export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }: CreateBudgetFormProps) {
+export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, budgets }: CreateBudgetFormProps) {
+  const { data: members = [], isLoading: membersLoading } = useMembers();
+
   const [form, setForm] = useState<CreateBudgetInput>({
-    budget_amount: 100,
+    budget_amount: 29, // Default to 29 USD as per user's template
     prevent_further_usage: true,
-    budget_scope: "enterprise",
+    budget_scope: "user",
     budget_entity_name: "",
-    budget_type: "ProductPricing",
-    budget_product_sku: "actions",
+    budget_type: "BundlePricing",
+    budget_product_sku: "ai_credits",
     budget_alerting: {
-      will_alert: false,
-      alert_recipients: [],
+      will_alert: true,
+      alert_recipients: ["SertayKabuk"], // Set default alert recipients from user's template
     },
+    note: "",
   });
+  
   const [recipientInput, setRecipientInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [costCentersLoading, setCostCentersLoading] = useState(false);
-  const [costCentersError, setCostCentersError] = useState<string | null>(null);
+
+  // Transfer credit state variables
+  const [isTransfer, setIsTransfer] = useState(false);
+  const [fromUser, setFromUser] = useState("");
+  const [fromUserLoading, setFromUserLoading] = useState(false);
+  const [fromUserSpent, setFromUserSpent] = useState<number>(0);
+  const [fromUserBudget, setFromUserBudget] = useState<Budget | null>(null);
+
+  // Target user budget state variables
+  const [targetUserBudget, setTargetUserBudget] = useState<Budget | null>(null);
+  const [targetUserSpent, setTargetUserSpent] = useState<number>(0);
+  const [targetUserLoading, setTargetUserLoading] = useState<boolean>(false);
+
+  const targetUserLimit = useMemo(() => {
+    if (!targetUserBudget) return 0;
+    return targetUserBudget.budget_amount;
+  }, [targetUserBudget]);
+
+  const targetUserBalance = useMemo(() => {
+    return Math.max(targetUserLimit - targetUserSpent, 0);
+  }, [targetUserLimit, targetUserSpent]);
+
+  const handleTargetUserChange = async (username: string) => {
+    updateForm("budget_entity_name", username);
+    if (!username) {
+      setTargetUserBudget(null);
+      setTargetUserSpent(0);
+      return;
+    }
+
+    const existingBudget = budgets.find(
+      (b) => b.budget_scope === "user" && b.budget_entity_name === username
+    );
+
+    if (existingBudget) {
+      setTargetUserBudget(existingBudget);
+    } else {
+      // Look up global budget limit
+      const globalBudget = budgets.find((b) => b.budget_scope === "multi_user_customer");
+      const globalLimit = globalBudget ? globalBudget.budget_amount : 29;
+      const globalAlerting = globalBudget ? globalBudget.budget_alerting : { will_alert: true, alert_recipients: ["SertayKabuk"] };
+      const globalPreventFurtherUsage = globalBudget ? globalBudget.prevent_further_usage : true;
+      setTargetUserBudget({
+        id: "", // Empty string means no user-scoped budget to delete
+        budget_scope: "user",
+        budget_entity_name: username,
+        budget_amount: globalLimit,
+        prevent_further_usage: globalPreventFurtherUsage,
+        budget_type: "BundlePricing",
+        budget_product_sku: "ai_credits",
+        budget_alerting: globalAlerting
+      });
+    }
+
+    setTargetUserLoading(true);
+    try {
+      const response = await fetch(withBasePath(`/api/billing-usage?user=${encodeURIComponent(username)}`));
+      if (response.ok) {
+        const json = await response.json();
+        const spent = getSpentAmountForBudget(
+          { budget_product_sku: "ai_credits", budget_type: "BundlePricing" },
+          json.data?.usageItems || []
+        );
+        setTargetUserSpent(spent);
+      }
+    } catch (err) {
+      console.error("Failed to fetch usage for target user:", err);
+    } finally {
+      setTargetUserLoading(false);
+    }
+  };
+
+  const memberOptions = useMemo(() => {
+    return members.map((member) => ({
+      value: member.login,
+      label: member.name ? `${member.name} (@${member.login})` : `@${member.login}`,
+      description: member.role ? `Role: ${member.role}` : undefined,
+    }));
+  }, [members]);
 
   const canSubmit = useMemo(() => {
-    const base = form.budget_product_sku.trim().length > 0 && form.budget_amount >= 0;
-    if (!base) return false;
-    if (form.budget_scope === "cost_center") {
-      return Boolean(form.budget_entity_name && form.budget_entity_name.trim().length > 0);
-    }
-    return true;
+    return (
+      form.budget_amount >= 0 &&
+      Boolean(form.budget_entity_name && form.budget_entity_name.trim().length > 0)
+    );
   }, [form]);
-  const currentSkuOptions = SKU_OPTIONS[form.budget_type];
+
+  const remainingTransferAmount = useMemo(() => {
+    if (!fromUserBudget) return 0;
+    const limit = fromUserBudget.budget_amount;
+    const spent = fromUserSpent;
+    return Math.max(limit - spent, 0);
+  }, [fromUserBudget, fromUserSpent]);
+
+  const handleFromUserChange = async (username: string) => {
+    setFromUser(username);
+    if (!username) {
+      setFromUserBudget(null);
+      setFromUserSpent(0);
+      return;
+    }
+
+    const existingBudget = budgets.find(
+      (b) => b.budget_scope === "user" && b.budget_entity_name === username
+    );
+
+    if (existingBudget) {
+      setFromUserBudget(existingBudget);
+    } else {
+      // Look up global budget limit
+      const globalBudget = budgets.find((b) => b.budget_scope === "multi_user_customer");
+      const globalLimit = globalBudget ? globalBudget.budget_amount : 29;
+      const globalAlerting = globalBudget ? globalBudget.budget_alerting : { will_alert: true, alert_recipients: ["SertayKabuk"] };
+      const globalPreventFurtherUsage = globalBudget ? globalBudget.prevent_further_usage : true;
+      setFromUserBudget({
+        id: "", // Empty string means no user-scoped budget to delete
+        budget_scope: "user",
+        budget_entity_name: username,
+        budget_amount: globalLimit,
+        prevent_further_usage: globalPreventFurtherUsage,
+        budget_type: "BundlePricing",
+        budget_product_sku: "ai_credits",
+        budget_alerting: globalAlerting
+      });
+    }
+
+    setFromUserLoading(true);
+    try {
+      const response = await fetch(withBasePath(`/api/billing-usage?user=${encodeURIComponent(username)}`));
+      if (response.ok) {
+        const json = await response.json();
+        const spent = getSpentAmountForBudget(
+          { budget_product_sku: "ai_credits", budget_type: "BundlePricing" },
+          json.data?.usageItems || []
+        );
+        setFromUserSpent(spent);
+      }
+    } catch (err) {
+      console.error("Failed to fetch usage for transfer source user:", err);
+    } finally {
+      setFromUserLoading(false);
+    }
+  };
 
   const updateForm = <K extends keyof CreateBudgetInput>(key: K, value: CreateBudgetInput[K]) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
-    }));
-  };
-
-  const handleBudgetTypeChange = (value: BudgetType) => {
-    const nextOptions = SKU_OPTIONS[value];
-    setForm((prev) => ({
-      ...prev,
-      budget_type: value,
-      budget_product_sku:
-        nextOptions.find((option) => option.value === prev.budget_product_sku)?.value ?? nextOptions[0]?.value ?? "",
     }));
   };
 
@@ -150,63 +236,50 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
     event.preventDefault();
 
     if (!canSubmit) {
-      setError(
-        form.budget_scope === "cost_center"
-          ? "Budget amount, SKU and cost center are required."
-          : "Budget amount and SKU are required."
-      );
+      setError("Username and budget amount are required.");
       return;
+    }
+
+    if (isTransfer) {
+      if (!fromUser) {
+        setError("Please select a user to transfer credit from.");
+        return;
+      }
+      if (!fromUserBudget) {
+        setError("The selected user does not have an active budget to transfer from.");
+        return;
+      }
     }
 
     setError(null);
 
-    await onSubmit({
+    const submitData: any = {
       ...form,
       budget_amount: Number(form.budget_amount),
       budget_entity_name: form.budget_entity_name?.trim() ?? "",
       budget_product_sku: form.budget_product_sku.trim(),
-    });
+    };
+
+    if (isTransfer && fromUserBudget) {
+      submitData.transfer = {
+        fromUser,
+        fromUserBudgetId: fromUserBudget.id || null,
+        fromUserSpent,
+        remaining: remainingTransferAmount,
+        fromUserBudgetScope: fromUserBudget.budget_scope,
+        fromUserAlerting: fromUserBudget.budget_alerting,
+      };
+    }
+
+    await onSubmit(submitData);
   };
-
-  // Fetch cost centers when the selected scope is cost_center
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      if (form.budget_scope !== "cost_center") return;
-
-      setCostCentersLoading(true);
-      setCostCentersError(null);
-
-      try {
-        const res = await fetch(withBasePath(`/api/cost-centers`));
-        if (!res.ok) throw new Error(`Failed to load cost centers: ${res.status}`);
-        const json = await res.json();
-        const data: { data: CostCenter[]; error?: string } = json;
-        if (!mounted) return;
-        setCostCenters(data.data.filter((cc) => cc.state === "active") || []);
-      } catch (err) {
-        if (!mounted) return;
-        setCostCentersError(err instanceof Error ? err.message : String(err));
-        setCostCenters([]);
-      } finally {
-        if (mounted) setCostCentersLoading(false);
-      }
-    };
-
-    load();
-
-    return () => {
-      mounted = false;
-    };
-  }, [form.budget_scope]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label htmlFor="budget-amount" className="text-sm font-medium">
-            Budget amount (USD)
+            Base Budget amount (USD)
           </label>
           <Input
             id="budget-amount"
@@ -233,87 +306,124 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Budget scope</label>
-          <Select value={form.budget_scope} onValueChange={(value) => updateForm("budget_scope", value as BudgetScope)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {scopeOptions.map((scope) => (
-                <SelectItem key={scope.value} value={scope.value}>
-                  {scope.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+        <div className="space-y-2 md:col-span-2">
+          <label htmlFor="budget-entity" className="text-sm font-medium">
+            New User (Username)
+          </label>
+          <SearchableCombobox
+            options={memberOptions}
+            value={form.budget_entity_name || ""}
+            onValueChange={handleTargetUserChange}
+            placeholder="Select target user..."
+            searchPlaceholder="Search enterprise members..."
+            emptyText="No members found."
+            loading={membersLoading || targetUserLoading}
+          />
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Budget type</label>
-          <Select value={form.budget_type} onValueChange={(value) => handleBudgetTypeChange(value as BudgetType)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {typeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {form.budget_scope === "cost_center" ? (
+
+        {form.budget_entity_name && (
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="budget-entity" className="text-sm font-medium">
-              Cost center
-            </label>
-            <Select
-              value={form.budget_entity_name}
-              onValueChange={(value) => updateForm("budget_entity_name", value)}
-            >
-              <SelectTrigger disabled={costCentersLoading || !!costCentersError || costCenters.length === 0}>
-                <SelectValue placeholder={costCentersLoading ? "Loading..." : "Select a cost center"} />
-              </SelectTrigger>
-              <SelectContent>
-                {costCenters.map((cc) => (
-                  <SelectItem key={cc.id} value={cc.name}>
-                    {cc.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : (
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="budget-entity" className="text-sm font-medium">
-              Entity name (optional)
-            </label>
-            <Input
-              id="budget-entity"
-              placeholder="e.g. octo-org or octo-org/octo-repo"
-              value={form.budget_entity_name}
-              onChange={(event) => updateForm("budget_entity_name", event.target.value)}
-            />
+            <div className="text-xs space-y-1 bg-muted/20 p-3 rounded-lg border">
+              {targetUserLoading ? (
+                <p className="text-muted-foreground animate-pulse">Calculating balance...</p>
+              ) : targetUserBudget ? (
+                <>
+                  <p className="flex justify-between">
+                    <span className="text-muted-foreground">Current Budget Limit:</span>{" "}
+                    <span className="font-mono font-medium">
+                      ${targetUserLimit.toFixed(2)}
+                      {targetUserBudget.id === "" ? " (Global Fallback)" : " (User Specific)"}
+                    </span>
+                  </p>
+                  <p className="flex justify-between">
+                    <span className="text-muted-foreground">Current Spent:</span>{" "}
+                    <span className="font-mono font-medium">${targetUserSpent.toFixed(2)}</span>
+                  </p>
+                  <p className="flex justify-between font-medium text-emerald-600 border-t pt-1 mt-1">
+                    <span>Remaining Balance:</span>{" "}
+                    <span className="font-mono font-semibold">
+                      ${targetUserBalance.toFixed(2)}
+                    </span>
+                  </p>
+                </>
+              ) : null}
+            </div>
           </div>
         )}
-        <div className="space-y-2 md:col-span-2">
-          <label className="text-sm font-medium">
-            {form.budget_type === "ProductPricing" ? "Product" : "SKU"}
+
+        {/* Transfer credits toggle */}
+        <div className="flex items-center space-x-2 md:col-span-2 pt-2 border-t mt-2">
+          <input
+            id="is-transfer"
+            type="checkbox"
+            checked={isTransfer}
+            onChange={(e) => setIsTransfer(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="is-transfer" className="text-sm font-medium select-none cursor-pointer">
+            Transfer remaining credits from another user
           </label>
-          <Select value={form.budget_product_sku} onValueChange={(value) => updateForm("budget_product_sku", value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select an option" />
-            </SelectTrigger>
-            <SelectContent>
-              {currentSkuOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
+
+        {isTransfer && (
+          <div className="space-y-4 md:col-span-2 border rounded-lg p-4 bg-muted/20">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Transfer From User</label>
+              <SearchableCombobox
+                options={memberOptions.filter(o => o.value !== form.budget_entity_name)}
+                value={fromUser}
+                onValueChange={handleFromUserChange}
+                placeholder="Select user to transfer from..."
+                searchPlaceholder="Search members..."
+                emptyText="No members found."
+                loading={membersLoading || fromUserLoading}
+              />
+            </div>
+
+            {fromUser && (
+              <div className="text-xs space-y-1 bg-background p-3 rounded border">
+                {fromUserBudget ? (
+                  <>
+                    <p>
+                      Current Budget:{" "}
+                      <span className="font-mono font-medium">
+                        ${fromUserBudget.budget_amount.toFixed(2)}
+                      </span>
+                    </p>
+                    <p>
+                      Current Spent:{" "}
+                      <span className="font-mono font-medium">${fromUserSpent.toFixed(2)}</span>
+                    </p>
+                    <p className="font-medium text-blue-600 mt-1">
+                      Remaining credit to transfer:{" "}
+                      <span className="font-mono font-semibold">
+                        ${remainingTransferAmount.toFixed(2)}
+                      </span>
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-destructive font-medium">
+                    This user does not have an active AI credits budget to transfer from.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="budget-note" className="text-sm font-medium">
+          Note / Reason (Optional)
+        </label>
+        <Input
+          id="budget-note"
+          type="text"
+          placeholder="e.g. Initial allocation for Q3, or credit transfer due to team change..."
+          value={form.note || ""}
+          onChange={(event) => updateForm("note", event.target.value)}
+        />
       </div>
 
       <div className="space-y-3">
@@ -368,8 +478,8 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false }
         <Button type="button" variant="ghost" onClick={onCancel} disabled={loading}>
           Cancel
         </Button>
-        <Button type="submit" disabled={loading || !canSubmit}>
-          {loading ? "Creating..." : "Create Budget"}
+        <Button type="submit" disabled={loading || !canSubmit || (isTransfer && !fromUserBudget)}>
+          {loading ? "Creating..." : isTransfer ? "Transfer & Create" : "Create Budget"}
         </Button>
       </div>
     </form>

@@ -105,7 +105,7 @@ export interface ResourceReassignment {
   previous_cost_center: string;
 }
 
-export type BudgetScope = "enterprise" | "organization" | "repository" | "cost_center";
+export type BudgetScope = "enterprise" | "organization" | "repository" | "cost_center" | "user" | "multi_user_customer";
 
 export type BudgetType = "ProductPricing" | "SkuPricing" | "BundlePricing";
 
@@ -118,11 +118,13 @@ export interface Budget {
   id: string;
   budget_scope: BudgetScope;
   budget_entity_name?: string;
+  user?: string;
   budget_amount: number;
   prevent_further_usage: boolean;
   budget_type: BudgetType;
   budget_product_sku?: string;
   budget_alerting: BudgetAlerting;
+  note?: string;
 }
 
 export interface CreateBudgetInput {
@@ -130,9 +132,11 @@ export interface CreateBudgetInput {
   prevent_further_usage: boolean;
   budget_scope: BudgetScope;
   budget_entity_name?: string;
+  user?: string;
   budget_type: BudgetType;
   budget_product_sku: string;
   budget_alerting: BudgetAlerting;
+  note?: string;
 }
 
 export interface BudgetCreateResult {

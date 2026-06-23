@@ -24,6 +24,13 @@ function matchesUsageItem(
   const productKey = normalizeUsageKey(item.product);
   const skuKey = normalizeUsageKey(item.sku);
 
+  const isAiCreditsBudget = budgetKey === "ai_credits" || budgetKey === "ai-credits";
+  const isAiCreditsItem = skuKey === "copilot ai credits" || skuKey === "ai_credits" || skuKey === "ai-credits" || normalizeUsageKey(item.unitType) === "ai-credits";
+
+  if (isAiCreditsBudget && isAiCreditsItem) {
+    return true;
+  }
+
   switch (budget.budget_type) {
     case "ProductPricing":
       return productKey === budgetKey || skuKey === budgetKey;
@@ -49,7 +56,7 @@ export function getSpentAmountForBudget(
       return sum;
     }
 
-    return sum + Number(item.netAmount ?? 0);
+    return sum + Number(item.grossAmount ?? 0);
   }, 0);
 }
 

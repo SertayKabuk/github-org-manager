@@ -107,3 +107,19 @@ CREATE INDEX IF NOT EXISTS idx_access_automation_rules_target_org ON access_auto
 -- Indexes for cost centers and budgets
 CREATE INDEX IF NOT EXISTS idx_cost_centers_name ON cost_centers(name);
 CREATE INDEX IF NOT EXISTS idx_budgets_name ON budgets(name);
+
+-- Budget transactions table for recording budget creations and transfers
+CREATE TABLE IF NOT EXISTS budget_transactions (
+  id SERIAL PRIMARY KEY,
+  transaction_type VARCHAR(50) NOT NULL, -- 'create' or 'transfer'
+  from_user VARCHAR(255),
+  to_user VARCHAR(255) NOT NULL,
+  amount NUMERIC NOT NULL,
+  transferred_amount NUMERIC DEFAULT 0,
+  note TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_budget_transactions_to_user ON budget_transactions(to_user);
+CREATE INDEX IF NOT EXISTS idx_budget_transactions_from_user ON budget_transactions(from_user);
+CREATE INDEX IF NOT EXISTS idx_budget_transactions_type ON budget_transactions(transaction_type);

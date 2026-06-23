@@ -42,6 +42,22 @@ export default function BudgetsPage() {
 
   const { data: costCenters = [] } = useCostCenters({ state: "active" });
 
+  const {
+    data: transactions = [],
+    isLoading: transactionsLoading,
+    refetch: refetchTransactions,
+  } = useQuery({
+    queryKey: ["budget-transactions"],
+    queryFn: async (): Promise<any[]> => {
+      const response = await fetch(withBasePath("/api/budgets/transactions"));
+      if (!response.ok) {
+        throw new Error("Failed to fetch budget transactions.");
+      }
+      const json = await response.json();
+      return json.data || [];
+    },
+  });
+
   const error = budgetsError || actionError;
 
   // Build cost center name-to-ID mapping
@@ -55,47 +71,54 @@ export default function BudgetsPage() {
     );
   }, [costCenters]);
 
-  const costCenterBudgets = useMemo(
+  const queryableBudgets = useMemo(
     () =>
       budgets
         .filter(
-          (budget) => budget.budget_scope === "cost_center" && budget.budget_entity_name
+          (budget) =>
+            (budget.budget_scope === "cost_center" ||
+              budget.budget_scope === "user" ||
+              budget.budget_scope === "multi_user_customer") &&
+            budget.budget_entity_name
         )
         .map((budget) => ({
           id: budget.id,
+          scope: budget.budget_scope,
           budgetType: budget.budget_type,
           budgetProductSku: budget.budget_product_sku ?? null,
           budgetEntityName: budget.budget_entity_name ?? null,
-          costCenterId: budget.budget_entity_name
+          costCenterId: budget.budget_scope === "cost_center" && budget.budget_entity_name
             ? costCenterNameToId[budget.budget_entity_name] ?? null
             : null,
         })),
     [budgets, costCenterNameToId]
   );
 
-  const hasCostCenterMappings = Object.keys(costCenterNameToId).length > 0;
-
   const {
     data: usageData = {},
     refetch: refetchUsageData,
     isFetching: usageLoading,
   } = useQuery({
-    queryKey: ["budget-usage-map", costCenterBudgets],
-    enabled: costCenterBudgets.length > 0 && hasCostCenterMappings,
+    queryKey: ["budget-usage-map", queryableBudgets],
+    enabled: queryableBudgets.length > 0,
     queryFn: async (): Promise<Record<string, number>> => {
       const results = await Promise.all(
-        costCenterBudgets.map(async (budget) => {
-          if (!budget.costCenterId) {
-            console.warn(`No cost center ID found for name: ${budget.budgetEntityName}`);
-            return { budgetId: budget.id, spent: 0 };
+        queryableBudgets.map(async (budget) => {
+          let url = "";
+          if (budget.scope === "user") {
+            url = `/api/billing-usage?user=${encodeURIComponent(budget.budgetEntityName || "")}`;
+          } else if (budget.scope === "multi_user_customer") {
+            url = `/api/billing-usage?aiCredits=true`;
+          } else {
+            if (!budget.costCenterId) {
+              console.warn(`No cost center ID found for name: ${budget.budgetEntityName}`);
+              return { budgetId: budget.id, spent: 0 };
+            }
+            url = `/api/billing-usage?costCenterId=${encodeURIComponent(budget.costCenterId)}`;
           }
 
           try {
-            const response = await fetch(
-              withBasePath(
-                `/api/billing-usage?costCenterId=${encodeURIComponent(budget.costCenterId)}`
-              )
-            );
+            const response = await fetch(withBasePath(url));
 
             if (!response.ok) {
               console.warn(`Failed to fetch usage for ${budget.budgetEntityName}`);
@@ -132,9 +155,8 @@ export default function BudgetsPage() {
   const handleRefresh = async () => {
     await Promise.all([
       refetchBudgets(),
-      costCenterBudgets.length > 0 && hasCostCenterMappings
-        ? refetchUsageData()
-        : Promise.resolve(null),
+      refetchTransactions(),
+      queryableBudgets.length > 0 ? refetchUsageData() : Promise.resolve(null),
     ]);
   };
 
@@ -179,7 +201,16 @@ export default function BudgetsPage() {
     }
   };
 
-  const handleCreateBudget = async (data: CreateBudgetInput) => {
+  const handleCreateBudget = async (data: CreateBudgetInput & {
+    transfer?: {
+      fromUser: string;
+      fromUserBudgetId: string;
+      fromUserSpent: number;
+      remaining: number;
+      fromUserBudgetScope?: string;
+      fromUserAlerting?: any;
+    }
+  }) => {
     setCreating(true);
     setActionError(null);
 
@@ -276,7 +307,12 @@ export default function BudgetsPage() {
           <CardHeader>
             <CardDescription>Aggregate limit</CardDescription>
             <CardTitle className="text-3xl">
-              {new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(stats.totalAmount)}
+              {new Intl.NumberFormat(undefined, {
+                style: "currency",
+                currency: "USD",
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(stats.totalAmount)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -324,12 +360,73 @@ export default function BudgetsPage() {
             <CardDescription>Define a new spending limit for your enterprise.</CardDescription>
           </CardHeader>
           <CardContent>
-            <CreateBudgetForm onSubmit={handleCreateBudget} onCancel={() => setShowCreateForm(false)} loading={creating} />
+            <CreateBudgetForm onSubmit={handleCreateBudget} onCancel={() => setShowCreateForm(false)} loading={creating} budgets={budgets} />
           </CardContent>
         </Card>
       )}
 
       <BudgetList budgets={filteredBudgets} onDelete={handleDeleteRequest} deletingBudgetId={deletingBudgetId} usageData={usageData} />
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="text-xl">Transaction History</CardTitle>
+          <CardDescription>Auditing log of recent budget allocations and transfers.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {transactionsLoading && transactions.length === 0 ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : transactions.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No budget transactions recorded yet.</p>
+          ) : (
+            <div className="divide-y text-sm">
+              {transactions.map((tx: any) => {
+                const isTxTransfer = tx.transaction_type === "transfer";
+                const date = new Date(tx.created_at).toLocaleString();
+                return (
+                  <div key={tx.id} className="py-3 first:pt-0 last:pb-0 flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          isTxTransfer 
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" 
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        }`}>
+                          {isTxTransfer ? "Transfer" : "Create"}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {isTxTransfer ? (
+                            <>
+                              Transferred remaining <span className="font-semibold text-emerald-600">${Number(tx.transferred_amount).toFixed(2)}</span> from{" "}
+                              <span className="font-semibold text-blue-600">@{tx.from_user}</span> to{" "}
+                              <span className="font-semibold text-blue-600">@{tx.to_user}</span>
+                              <span className="text-muted-foreground font-normal"> (base: ${Number(tx.amount).toFixed(2)})</span>
+                            </>
+                          ) : (
+                            <>
+                              Created budget of <span className="font-semibold text-emerald-600">${Number(tx.amount).toFixed(2)}</span> for{" "}
+                              <span className="font-semibold text-blue-600">@{tx.to_user}</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">{date}</span>
+                    </div>
+                    {tx.note && (
+                      <p className="text-xs text-muted-foreground italic pl-2 border-l-2 border-muted mt-1 bg-muted/10 py-1 pr-2 rounded">
+                        Note: {tx.note}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => (open ? setDeleteDialogOpen(true) : closeDeleteDialog())}>
         <DialogContent>

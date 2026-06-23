@@ -91,6 +91,11 @@ export default function BudgetCard({ budget, onDelete, deleting = false, spent }
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{hasUsageData ? `${formatCurrency(spentAmount)} spent` : "Usage unavailable"}</span>
+          {hasUsageData && (
+            <span className="font-medium text-emerald-600">
+              {formatCurrency(Math.max(budgetAmount - spentAmount, 0))} remaining
+            </span>
+          )}
           <span>{formatCurrency(budgetAmount)} budget</span>
         </div>
       </div>

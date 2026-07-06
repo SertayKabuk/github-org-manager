@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useMemo, useState } from "react";
-import { Users, Filter } from "lucide-react";
+import { Users, Filter, Download } from "lucide-react";
 
 import { withBasePath } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import type { GitHubMember } from "@/lib/types/github";
 import MemberList from "@/components/members/MemberList";
 import BulkActionToolbar from "@/components/members/BulkActionToolbar";
@@ -30,6 +31,7 @@ export default function MembersPage() {
   const [teamFilter, setTeamFilter] = useState<string>("all");
   const [costCenterFilter, setCostCenterFilter] = useState<string>("all");
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch teams for the filter dropdown
   const { data: teams = [] } = useTeams();
@@ -168,6 +170,46 @@ export default function MembersPage() {
     // which effectively removes them from the "No team" view if they were there
   }, [selectedMembers]);
 
+  // Handle Export to Excel
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (roleFilter !== "all") params.set("role", roleFilter);
+      if (teamFilter && teamFilter !== "all") params.set("team", teamFilter);
+
+      const url = withBasePath(`/api/members/export${params.toString() ? `?${params}` : ""}`);
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Failed to export members");
+      }
+      
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = "members-export.csv";
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Error exporting members:", error);
+      alert("Failed to export members. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [roleFilter, teamFilter]);
+
 
   return (
     <div className="space-y-6">
@@ -215,6 +257,16 @@ export default function MembersPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            onClick={handleExport}
+            disabled={isExporting}
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1"
+          >
+            <Download className="h-4 w-4" />
+            {isExporting ? "Exporting..." : "Export to Excel"}
+          </Button>
         </div>
       </div>
 

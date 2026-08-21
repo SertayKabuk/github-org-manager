@@ -137,6 +137,37 @@ export async function POST(request: NextRequest) {
         fromUserAlerting,
       } = body.transfer;
 
+      const targetUser = body.budget_scope === "user"
+        ? body.user ?? body.budget_entity_name
+        : undefined;
+      const targetEntityName = body.budget_scope === "user"
+        ? targetUser
+        : body.budget_entity_name ?? "";
+      const budgetsRaw = await fetchBillingPaginatedItems<RawBudgetPayload>({
+        request: octokit.request,
+        route: "GET /enterprises/{enterprise}/settings/billing/budgets",
+        dataKey: "budgets",
+        parameters: {
+          enterprise,
+          headers: {
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        },
+      });
+      const existingTargetBudget = budgetsRaw.find((budget) => {
+        const budgetEntityName = body.budget_scope === "user"
+          ? budget.user ?? budget.budget_entity_name
+          : budget.budget_entity_name ?? "";
+
+        return (
+          budget.budget_scope === body.budget_scope &&
+          budgetEntityName === targetEntityName &&
+          budget.budget_product_sku === body.budget_product_sku &&
+          budget.budget_type === body.budget_type &&
+          (body.budget_scope !== "user" || Boolean(targetUser))
+        );
+      });
+
       // 1. Delete the existing budget of From User (only if it exists and is user-scoped)
       if (fromUserBudgetId && fromUserBudgetScope === "user") {
         try {
@@ -175,22 +206,57 @@ export async function POST(request: NextRequest) {
         throw new Error("Failed to create the adjusted budget for the source user.");
       }
 
-      // 3. Create the budget for To User (base amount + remaining)
-      const targetAmount = Math.ceil(body.budget_amount + remaining);
-      const targetResponse = await octokit.request("POST /enterprises/{enterprise}/settings/billing/budgets", {
-        enterprise,
-        budget_amount: targetAmount,
-        prevent_further_usage: body.prevent_further_usage,
-        budget_scope: body.budget_scope,
-        budget_entity_name: body.budget_scope === "user" ? "" : (body.budget_entity_name ?? ""),
-        budget_type: body.budget_type,
-        budget_product_sku: body.budget_product_sku,
-        budget_alerting: body.budget_alerting,
-        user: body.budget_scope === "user" ? (body.user ?? body.budget_entity_name) : undefined,
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
+      // 3. Update an existing matching target budget or create a new one
+      const newAllocation = Math.ceil(body.budget_amount + remaining);
+      const existingTargetBudgetId = existingTargetBudget?.id || existingTargetBudget?.budget_id;
+      const existingTargetAmount = existingTargetBudget
+        ? Number(existingTargetBudget.budget_amount)
+        : 0;
+
+      if (existingTargetBudget && !existingTargetBudgetId) {
+        throw new Error("Existing target budget is missing a budget ID.");
+      }
+
+      if (existingTargetBudget && !Number.isFinite(existingTargetAmount)) {
+        throw new Error("Existing target budget has an invalid budget amount.");
+      }
+
+      const targetAmount = existingTargetBudget
+        ? Math.ceil(existingTargetAmount + newAllocation)
+        : newAllocation;
+      const targetResponse = existingTargetBudget
+        ? await octokit.request("PATCH /enterprises/{enterprise}/settings/billing/budgets/{budget_id}", {
+            enterprise,
+            budget_id: existingTargetBudgetId,
+            budget_amount: targetAmount,
+            ...(body.budget_scope === "user"
+              ? {
+                  prevent_further_usage: true,
+                  budget_scope: "user",
+                  budget_entity_name: "",
+                  budget_type: body.budget_type,
+                  budget_product_sku: body.budget_product_sku,
+                  user: targetUser,
+                }
+              : {}),
+            headers: {
+              "X-GitHub-Api-Version": "2022-11-28",
+            },
+          })
+        : await octokit.request("POST /enterprises/{enterprise}/settings/billing/budgets", {
+            enterprise,
+            budget_amount: targetAmount,
+            prevent_further_usage: body.prevent_further_usage,
+            budget_scope: body.budget_scope,
+            budget_entity_name: body.budget_scope === "user" ? "" : (body.budget_entity_name ?? ""),
+            budget_type: body.budget_type,
+            budget_product_sku: body.budget_product_sku,
+            budget_alerting: body.budget_alerting,
+            user: body.budget_scope === "user" ? (body.user ?? body.budget_entity_name) : undefined,
+            headers: {
+              "X-GitHub-Api-Version": "2022-11-28",
+            },
+          });
 
       const payload = targetResponse.data as GitHubCreateBudgetResponse;
       const budgetData = payload?.budget
@@ -198,7 +264,7 @@ export async function POST(request: NextRequest) {
         : mapBudget({
             ...body,
             budget_amount: targetAmount,
-            id: payload?.budget_id ?? payload?.id ?? "",
+            id: payload?.budget_id ?? payload?.id ?? existingTargetBudgetId ?? "",
             budget_product_skus: [body.budget_product_sku],
           });
 

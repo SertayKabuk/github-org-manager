@@ -45,7 +45,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "baseline-browser-mapping": "^2.10.27",
+    "baseline-browser-mapping": "^2.11.0",
     "eslint": "^10.3.0",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4.2.4",

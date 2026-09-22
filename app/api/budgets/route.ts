@@ -13,6 +13,7 @@ import type {
 import { mapBudget, RawBudgetPayload } from "./transformers";
 import { query as dbQuery } from "@/lib/db";
 import { fetchBillingPaginatedItems } from "@/lib/github-paginated-response";
+import * as BudgetRepository from "@/lib/repositories/budget-repository";
 
 const BUDGET_SCOPES = new Set<BudgetScope>(["enterprise", "organization", "repository", "cost_center", "user", "multi_user_customer"]);
 const BUDGET_TYPES = new Set<BudgetType>(["ProductPricing", "SkuPricing", "BundlePricing"]);
@@ -206,6 +207,7 @@ export async function POST(request: NextRequest) {
               "X-GitHub-Api-Version": "2022-11-28",
             },
           });
+          await BudgetRepository.remove(fromUserBudgetId);
         } catch (err) {
           console.error("Failed to delete source user budget during transfer:", err);
           throw new Error("Failed to delete the old budget of the source user.");
@@ -215,7 +217,7 @@ export async function POST(request: NextRequest) {
       // 2. Create the adjusted budget for From User (equal to their spent amount, so they have $0 remaining)
       const adjustedAmount = Math.ceil(fromUserSpent);
       try {
-        await octokit.request("POST /enterprises/{enterprise}/settings/billing/budgets", {
+        const adjustedResponse = await octokit.request("POST /enterprises/{enterprise}/settings/billing/budgets", {
           enterprise,
           budget_amount: adjustedAmount,
           prevent_further_usage: true,
@@ -228,6 +230,20 @@ export async function POST(request: NextRequest) {
             "X-GitHub-Api-Version": "2022-11-28",
           },
         });
+
+        const adjustedPayload = adjustedResponse.data as GitHubCreateBudgetResponse;
+        const adjustedBudgetData = adjustedPayload?.budget
+          ? mapBudget(adjustedPayload.budget)
+          : mapBudget({
+              id: adjustedPayload?.budget_id ?? adjustedPayload?.id ?? "",
+              budget_scope: "user",
+              user: fromUser,
+              budget_amount: adjustedAmount,
+              prevent_further_usage: true,
+              budget_type: "BundlePricing",
+              budget_product_sku: "ai_credits",
+            });
+        await BudgetRepository.upsert(adjustedBudgetData);
       } catch (err) {
         console.error("Failed to create adjusted budget for source user during transfer:", err);
         throw new Error("Failed to create the adjusted budget for the source user.");
@@ -295,6 +311,7 @@ export async function POST(request: NextRequest) {
             id: payload?.budget_id ?? payload?.id ?? existingTargetBudgetId ?? "",
             budget_product_skus: [body.budget_product_sku],
           });
+      await BudgetRepository.upsert(budgetData);
 
       // 4. Record transfer transaction to DB
       await dbQuery(
@@ -332,6 +349,7 @@ export async function POST(request: NextRequest) {
             id: payload?.budget_id ?? payload?.id ?? "",
             budget_product_skus: [body.budget_product_sku],
           });
+      await BudgetRepository.upsert(budgetData);
 
       // Record create transaction to DB
       await dbQuery(

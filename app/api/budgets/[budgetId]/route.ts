@@ -11,6 +11,7 @@ import type {
   UpdateBudgetInput,
 } from "@/lib/types/github";
 import { mapBudget, RawBudgetPayload } from "../transformers";
+import * as BudgetRepository from "@/lib/repositories/budget-repository";
 
 type DeleteBudgetParams = Promise<{ budgetId: string }>;
 
@@ -103,6 +104,9 @@ export async function DELETE(
 
     const payload = response.data as GitHubDeleteBudgetResponse;
 
+    // Keep the local cache (used by personal pages) in sync instead of waiting for the next cron sync.
+    await BudgetRepository.remove(budgetId);
+
     return NextResponse.json<ApiResponse<BudgetDeleteResult>>(
       {
         data: {
@@ -184,6 +188,10 @@ export async function PATCH(
 
     const payload = response.data as GitHubUpdateBudgetResponse;
     const budgetData = payload?.budget ? mapBudget(payload.budget) : null;
+
+    if (budgetData) {
+      await BudgetRepository.upsert(budgetData);
+    }
 
     return NextResponse.json<ApiResponse<BudgetUpdateResult>>(
       {

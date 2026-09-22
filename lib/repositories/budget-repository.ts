@@ -33,6 +33,13 @@ export async function upsert(budget: Budget): Promise<BudgetEntity> {
 }
 
 /**
+ * Remove a budget from cache (e.g. after it's deleted on GitHub).
+ */
+export async function remove(id: string): Promise<void> {
+  await query("DELETE FROM budgets WHERE id = $1", [id]);
+}
+
+/**
  * Sync budgets by upserting current ones and deleting old ones.
  */
 export async function sync(budgets: Budget[]): Promise<void> {

@@ -44,6 +44,7 @@ interface BudgetTransaction {
 type ScopeFilter = "all" | BudgetScope;
 type ConsumptionFilter = "all" | "exhausted" | "under";
 type ExpirationFilter = "all" | "none" | "set";
+type SortOrder = "none" | "amount_desc" | "amount_asc";
 
 import { withBasePath } from "@/lib/utils";
 
@@ -56,6 +57,7 @@ export default function BudgetsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [consumptionFilter, setConsumptionFilter] = useState<ConsumptionFilter>("all");
   const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("none");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
@@ -336,6 +338,18 @@ export default function BudgetsPage() {
     });
   }, [budgets, scopeFilter, searchQuery, expirationFilter, consumptionFilter, usageData]);
 
+  const sortedBudgets = useMemo(() => {
+    if (sortOrder === "none") return filteredBudgets;
+
+    const sorted = [...filteredBudgets];
+    sorted.sort((a, b) =>
+      sortOrder === "amount_desc"
+        ? b.budget_amount - a.budget_amount
+        : a.budget_amount - b.budget_amount
+    );
+    return sorted;
+  }, [filteredBudgets, sortOrder]);
+
   const stats = useMemo(() => {
     const total = budgets.length;
     const totalAmount = budgets.reduce((sum, budget) => sum + (budget.budget_amount ?? 0), 0);
@@ -459,6 +473,16 @@ export default function BudgetsPage() {
               <SelectItem value="set">Has expiration date</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as SortOrder)}>
+            <SelectTrigger className="w-full md:w-56">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Default order</SelectItem>
+              <SelectItem value="amount_desc">Budget amount (high to low)</SelectItem>
+              <SelectItem value="amount_asc">Budget amount (low to high)</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="text-sm text-muted-foreground md:ml-auto">
             Showing {filteredBudgets.length} of {budgets.length}
           </div>
@@ -490,7 +514,7 @@ export default function BudgetsPage() {
       )}
 
       <BudgetList
-        budgets={filteredBudgets}
+        budgets={sortedBudgets}
         onEdit={handleEditRequest}
         onDelete={handleDeleteRequest}
         deletingBudgetId={deletingBudgetId}

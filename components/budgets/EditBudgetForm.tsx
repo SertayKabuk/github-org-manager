@@ -8,6 +8,7 @@ import type { Budget, UpdateBudgetInput } from "@/lib/types/github";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toDateInputValue } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -122,7 +123,7 @@ export default function EditBudgetForm({ budget, onSubmit, onCancel, loading = f
           <Input
             id="edit-budget-expires-at"
             type="date"
-            min={new Date().toISOString().slice(0, 10)}
+            min={toDateInputValue(new Date())}
             value={expiresAt}
             onChange={(event) => setExpiresAt(event.target.value)}
           />

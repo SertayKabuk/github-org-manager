@@ -9,7 +9,7 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getSpentAmountForBudget } from "@/lib/budget-usage";
-import { withBasePath } from "@/lib/utils";
+import { toDateInputValue, withBasePath } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -40,7 +40,7 @@ interface CreateBudgetFormProps {
 function getFirstDayOfNextMonth(): string {
   const now = new Date();
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return nextMonth.toISOString().slice(0, 10);
+  return toDateInputValue(nextMonth);
 }
 
 export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, budgets }: CreateBudgetFormProps) {
@@ -411,7 +411,7 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
         <Input
           id="budget-expires-at"
           type="date"
-          min={new Date().toISOString().slice(0, 10)}
+          min={toDateInputValue(new Date())}
           value={form.expires_at || ""}
           onChange={(event) => updateForm("expires_at", event.target.value)}
         />

@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useBudgetRequests } from "@/lib/hooks";
 import type { BudgetRequestEntity, BudgetRequestStatus } from "@/lib/entities/budget-request";
 import type { ApiResponse, Budget } from "@/lib/types/github";
-import { withBasePath } from "@/lib/utils";
+import { getFirstDayOfNextMonth, toDateInputValue, withBasePath } from "@/lib/utils";
 
 type StatusFilter = "all" | BudgetRequestStatus;
 
@@ -69,6 +69,7 @@ export default function BudgetRequestsPage() {
 
   const [reviewTarget, setReviewTarget] = useState<{ request: BudgetRequestEntity; action: "approve" | "reject" } | null>(null);
   const [reviewAmount, setReviewAmount] = useState<number | "">("");
+  const [reviewExpiresAt, setReviewExpiresAt] = useState("");
   const [reviewNote, setReviewNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -83,6 +84,7 @@ export default function BudgetRequestsPage() {
   const openReview = (request: BudgetRequestEntity, action: "approve" | "reject") => {
     setReviewTarget({ request, action });
     setReviewAmount(action === "approve" ? Number(request.requested_amount) : "");
+    setReviewExpiresAt(action === "approve" ? getFirstDayOfNextMonth() : "");
     setReviewNote("");
     setActionError(null);
   };
@@ -103,7 +105,9 @@ export default function BudgetRequestsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: reviewTarget.action,
-          ...(reviewTarget.action === "approve" ? { amount: reviewAmount } : {}),
+          ...(reviewTarget.action === "approve"
+            ? { amount: reviewAmount, expires_at: reviewExpiresAt || undefined }
+            : {}),
           note: reviewNote.trim() || undefined,
         }),
       });
@@ -259,6 +263,22 @@ export default function BudgetRequestsPage() {
                   Requested amount was {reviewTarget ? formatCurrency(reviewTarget.request.requested_amount) : "-"}.
                   Adjust if needed before applying.
                 </p>
+              </div>
+            )}
+
+            {reviewTarget?.action === "approve" && (
+              <div className="space-y-2">
+                <label htmlFor="review-expires-at" className="text-sm font-medium">
+                  Expires on (Optional)
+                </label>
+                <Input
+                  id="review-expires-at"
+                  type="date"
+                  min={toDateInputValue(new Date())}
+                  value={reviewExpiresAt}
+                  onChange={(event) => setReviewExpiresAt(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Leave blank for a non-expiring budget.</p>
               </div>
             )}
 

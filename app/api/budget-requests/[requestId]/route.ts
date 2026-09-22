@@ -23,8 +23,11 @@ interface GitHubBudgetResponse {
 interface ReviewBudgetRequestBody {
   action?: "approve" | "reject";
   amount?: number;
+  expires_at?: string;
   note?: string;
 }
+
+const EXPIRES_AT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 interface BudgetRequestActionResult {
   request: BudgetRequestEntity;
@@ -115,6 +118,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
+  if (body.expires_at !== undefined && !EXPIRES_AT_PATTERN.test(body.expires_at)) {
+    return NextResponse.json<ApiResponse<BudgetRequestActionResult | null>>(
+      { data: null, error: "expires_at must be a date in YYYY-MM-DD format." },
+      { status: 400 }
+    );
+  }
+
   try {
     const enterprise = getEnterpriseName();
     const octokit = await getBillingOctokit();
@@ -129,6 +139,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           budget_id: existingBudget.id,
           budget_amount: amount,
           prevent_further_usage: true,
+          ...(body.expires_at ? { expires_at: body.expires_at } : {}),
           headers: { "X-GitHub-Api-Version": "2022-11-28" },
         })
       : await octokit.request("POST /enterprises/{enterprise}/settings/billing/budgets", {
@@ -140,6 +151,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           budget_type: "BundlePricing",
           budget_product_sku: "ai_credits",
           user: login,
+          ...(body.expires_at ? { expires_at: body.expires_at } : {}),
           headers: { "X-GitHub-Api-Version": "2022-11-28" },
         });
 
@@ -154,6 +166,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           prevent_further_usage: true,
           budget_type: "BundlePricing",
           budget_product_sku: "ai_credits",
+          expires_at: body.expires_at ?? null,
         });
 
     // Keep the local cache fresh instead of waiting for the next sync cycle.

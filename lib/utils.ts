@@ -29,3 +29,13 @@ export function toDateInputValue(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Returns the first day of next month as YYYY-MM-DD, using the local calendar date.
+ * Used to default budget expires_at inputs.
+ */
+export function getFirstDayOfNextMonth(): string {
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return toDateInputValue(nextMonth);
+}

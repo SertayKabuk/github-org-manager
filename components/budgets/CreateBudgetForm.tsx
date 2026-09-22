@@ -9,7 +9,7 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getSpentAmountForBudget } from "@/lib/budget-usage";
-import { toDateInputValue, withBasePath } from "@/lib/utils";
+import { getFirstDayOfNextMonth, toDateInputValue, withBasePath } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -35,12 +35,6 @@ interface CreateBudgetFormProps {
   onCancel: () => void;
   loading?: boolean;
   budgets: Budget[];
-}
-
-function getFirstDayOfNextMonth(): string {
-  const now = new Date();
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return toDateInputValue(nextMonth);
 }
 
 export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, budgets }: CreateBudgetFormProps) {

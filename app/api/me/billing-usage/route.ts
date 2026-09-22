@@ -10,6 +10,12 @@ function hasAdminAccess(scopes?: string[], loginType?: string) {
   return loginType === "admin" || Boolean(scopes?.includes("admin:org"));
 }
 
+interface RawUsagePayload {
+  timePeriod?: BillingUsageSummary["timePeriod"];
+  enterprise?: string;
+  usageItems?: BillingUsageSummary["usageItems"];
+}
+
 export async function GET() {
   const authError = await requireAuth();
   if (authError) return authError;
@@ -26,13 +32,6 @@ export async function GET() {
 
   try {
     const userCostCenter = await CostCenterRepository.findByLogin(login);
-
-    if (!userCostCenter) {
-      return NextResponse.json<ApiResponse<BillingUsageSummary | null>>(
-        { data: null },
-        { status: 200 }
-      );
-    }
 
     const enterprise = getEnterpriseName();
     const octokit = process.env.GITHUB_SYSTEM_TOKEN?.trim()
@@ -51,19 +50,54 @@ export async function GET() {
       );
     }
 
-    const response = await octokit.request(
-      "GET /enterprises/{enterprise}/settings/billing/usage/summary",
-      {
-        enterprise,
-        cost_center_id: userCostCenter.id,
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
+    // Cost-center usage covers cost_center-scoped budgets; AI-credit usage (keyed by login)
+    // covers user-scoped budgets, which aren't tied to a cost center at all.
+    const [costCenterUsage, userAiCreditUsage] = await Promise.all([
+      userCostCenter
+        ? octokit
+            .request("GET /enterprises/{enterprise}/settings/billing/usage/summary", {
+              enterprise,
+              cost_center_id: userCostCenter.id,
+              headers: { "X-GitHub-Api-Version": "2022-11-28" },
+            })
+            .then((res) => res.data as RawUsagePayload)
+        : null,
+      octokit
+        .request("GET /enterprises/{enterprise}/settings/billing/ai_credit/usage", {
+          enterprise,
+          user: login,
+          headers: { "X-GitHub-Api-Version": "2022-11-28" },
+        })
+        .then((res) => res.data as RawUsagePayload)
+        .catch((err) => {
+          console.warn(`[me/billing-usage] Failed to fetch AI credit usage for ${login}:`, err);
+          return null;
+        }),
+    ]);
+
+    if (!costCenterUsage && !userAiCreditUsage) {
+      return NextResponse.json<ApiResponse<BillingUsageSummary | null>>(
+        { data: null },
+        { status: 200 }
+      );
+    }
+
+    const summary: BillingUsageSummary = {
+      timePeriod: costCenterUsage?.timePeriod ??
+        userAiCreditUsage?.timePeriod ?? {
+          year: new Date().getFullYear(),
+          month: new Date().getMonth() + 1,
         },
-      }
-    );
+      enterprise: costCenterUsage?.enterprise ?? userAiCreditUsage?.enterprise ?? enterprise,
+      costCenter: userCostCenter ? { id: userCostCenter.id, name: userCostCenter.name } : undefined,
+      usageItems: [
+        ...(costCenterUsage?.usageItems ?? []),
+        ...(userAiCreditUsage?.usageItems ?? []),
+      ],
+    };
 
     return NextResponse.json<ApiResponse<BillingUsageSummary | null>>(
-      { data: response.data },
+      { data: summary },
       { status: 200 }
     );
   } catch (error) {

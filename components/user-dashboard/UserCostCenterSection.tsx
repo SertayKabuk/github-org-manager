@@ -17,14 +17,14 @@ export function UserCostCenterSection() {
     data: usageSummary,
     isLoading: usageLoading,
     error: usageError,
-  } = useUserBillingUsage({ enabled: Boolean(costCenter) });
+  } = useUserBillingUsage({ enabled: budgets.length > 0 });
 
   const usageData = useMemo(
     () => usageSummary ? buildBudgetUsageMap(budgets, usageSummary.usageItems) : {},
     [budgets, usageSummary]
   );
 
-  const shouldWaitForUsage = Boolean(costCenter && budgets.length > 0 && usageLoading && !usageError);
+  const shouldWaitForUsage = Boolean(budgets.length > 0 && usageLoading && !usageError);
 
   if (ccLoading || bLoading || shouldWaitForUsage) return <Loading />;
   if (ccError) return <ErrorMessage message={ccError.message} />;

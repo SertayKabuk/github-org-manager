@@ -28,33 +28,35 @@ export function UserCostCenterSection() {
 
   if (ccLoading || bLoading || shouldWaitForUsage) return <Loading />;
   if (ccError) return <ErrorMessage message={ccError.message} />;
-  
-  // Hide section entirely if no cost center is assigned
-  if (!costCenter) return null;
+
+  // Hide section entirely if there's nothing to show
+  if (!costCenter && budgets.length === 0) return null;
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-4 pb-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Wallet className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <CardTitle>Cost Center: {costCenter.name}</CardTitle>
-            <CardDescription>
-              Your account is billed under this cost center.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">
-            {costCenter.azure_subscription && (
-              <p>Azure Subscription: <span className="font-mono">{costCenter.azure_subscription}</span></p>
-            )}
-            <p>Resources: {costCenter.resources.length} (including you)</p>
-          </div>
-        </CardContent>
-      </Card>
+      {costCenter && (
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-4 pb-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Wallet className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Cost Center: {costCenter.name}</CardTitle>
+              <CardDescription>
+                Your account is billed under this cost center.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground">
+              {costCenter.azure_subscription && (
+                <p>Azure Subscription: <span className="font-mono">{costCenter.azure_subscription}</span></p>
+              )}
+              <p>Resources: {costCenter.resources.length} (including you)</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Budgets</h3>
@@ -62,7 +64,7 @@ export function UserCostCenterSection() {
           <ErrorMessage message={bError.message} />
         ) : !budgets || budgets.length === 0 ? (
           <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
-            No budgets defined for your cost center.
+            No budgets defined for you or your cost center.
           </div>
         ) : (
           <div className="space-y-3">

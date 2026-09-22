@@ -59,3 +59,14 @@ export async function findByCostCenterName(costCenterName: string): Promise<Budg
   );
   return results.map(r => r.data);
 }
+
+/**
+ * Find user-scoped budgets assigned directly to a GitHub login.
+ */
+export async function findByUserLogin(login: string): Promise<Budget[]> {
+  const results = await query<BudgetEntity>(
+    "SELECT * FROM budgets WHERE data->>'budget_scope' = 'user' AND (data->>'user' = $1 OR name = $1)",
+    [login]
+  );
+  return results.map(r => r.data);
+}

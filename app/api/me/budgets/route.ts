@@ -23,14 +23,16 @@ export async function GET() {
     // 1. Get the user's cost center from cache
     const userCostCenter = await CostCenterRepository.findByLogin(login);
 
-    if (!userCostCenter) {
-      return NextResponse.json<ApiResponse<Budget[]>>({ data: [] });
-    }
+    // 2. Get budgets scoped directly to this user, plus any budgets on their cost center
+    const [userBudgets, costCenterBudgets] = await Promise.all([
+      BudgetRepository.findByUserLogin(login),
+      userCostCenter ? BudgetRepository.findByCostCenterName(userCostCenter.name) : Promise.resolve([]),
+    ]);
 
-    // 2. Get budgets for this cost center from cache
-    const budgets = await BudgetRepository.findByCostCenterName(userCostCenter.name);
-
-    return NextResponse.json<ApiResponse<Budget[]>>({ data: budgets }, { status: 200 });
+    return NextResponse.json<ApiResponse<Budget[]>>(
+      { data: [...userBudgets, ...costCenterBudgets] },
+      { status: 200 }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error fetching user budgets.";
     return NextResponse.json<ApiResponse<Budget[]>>(

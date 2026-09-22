@@ -12,6 +12,7 @@ const NAV_ITEMS = [
     { href: "/admin/invitations", label: "Invitations" },
     { href: "/admin/cost-centers", label: "Cost Centers" },
     { href: "/admin/budgets", label: "Budgets" },
+    { href: "/admin/budget-requests", label: "Budget Requests" },
     { href: "/admin/email-mappings", label: "Email Mappings" },
     { href: "/admin/access-automation", label: "Access Automation" },
     { href: "/admin/webhooks", label: "Webhooks" },

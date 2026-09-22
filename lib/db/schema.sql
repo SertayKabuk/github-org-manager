@@ -123,3 +123,21 @@ CREATE TABLE IF NOT EXISTS budget_transactions (
 CREATE INDEX IF NOT EXISTS idx_budget_transactions_to_user ON budget_transactions(to_user);
 CREATE INDEX IF NOT EXISTS idx_budget_transactions_from_user ON budget_transactions(from_user);
 CREATE INDEX IF NOT EXISTS idx_budget_transactions_type ON budget_transactions(transaction_type);
+
+-- Budget requests table for self-service budget increase requests
+CREATE TABLE IF NOT EXISTS budget_requests (
+  id SERIAL PRIMARY KEY,
+  requested_by VARCHAR(255) NOT NULL,
+  requested_amount NUMERIC NOT NULL,
+  current_budget_amount NUMERIC NOT NULL DEFAULT 0,
+  reason TEXT,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_by VARCHAR(255),
+  reviewed_at TIMESTAMP,
+  review_note TEXT,
+  resulting_budget_id VARCHAR(255),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_budget_requests_status ON budget_requests(status);
+CREATE INDEX IF NOT EXISTS idx_budget_requests_requested_by ON budget_requests(requested_by);

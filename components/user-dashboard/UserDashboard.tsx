@@ -3,6 +3,7 @@
 import { UserEmailMappingList } from "./UserEmailMappingList";
 import { UserTeamList } from "./UserTeamList";
 import { UserCostCenterSection } from "./UserCostCenterSection";
+import { UserBudgetRequestSection } from "./UserBudgetRequestSection";
 import { Separator } from "@/components/ui/separator";
 
 export default function UserDashboard() {
@@ -40,6 +41,7 @@ export default function UserDashboard() {
           </p>
         </div>
         <UserCostCenterSection />
+        <UserBudgetRequestSection />
       </section>
     </div>
   );

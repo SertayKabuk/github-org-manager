@@ -2,14 +2,12 @@
 
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { X } from "lucide-react";
 
 import type { CreateBudgetInput, Budget } from "@/lib/types/github";
 import { useMembers } from "@/lib/hooks";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { getSpentAmountForBudget } from "@/lib/budget-usage";
 import { withBasePath } from "@/lib/utils";
 import {
@@ -20,15 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type BudgetAlertingInput = CreateBudgetInput["budget_alerting"];
-
 interface BudgetTransferInput {
   fromUser: string;
   fromUserBudgetId: string | null;
   fromUserSpent: number;
   remaining: number;
   fromUserBudgetScope?: string;
-  fromUserAlerting?: BudgetAlertingInput;
 }
 
 type BudgetFormSubmitInput = CreateBudgetInput & {
@@ -42,6 +37,12 @@ interface CreateBudgetFormProps {
   budgets: Budget[];
 }
 
+function getFirstDayOfNextMonth(): string {
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return nextMonth.toISOString().slice(0, 10);
+}
+
 export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, budgets }: CreateBudgetFormProps) {
   const { data: members = [], isLoading: membersLoading } = useMembers();
 
@@ -52,14 +53,11 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
     budget_entity_name: "",
     budget_type: "BundlePricing",
     budget_product_sku: "ai_credits",
-    budget_alerting: {
-      will_alert: true,
-      alert_recipients: ["SertayKabuk"], // Set default alert recipients from user's template
-    },
+    // budget_alerting is rejected by GitHub for user-scope budgets, so it is intentionally omitted here.
+    expires_at: getFirstDayOfNextMonth(),
     note: "",
   });
-  
-  const [recipientInput, setRecipientInput] = useState("");
+
   const [error, setError] = useState<string | null>(null);
 
   // Transfer credit state variables
@@ -212,34 +210,6 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
     }));
   };
 
-  const updateAlerting = <K extends keyof CreateBudgetInput["budget_alerting"]>(
-    key: K,
-    value: CreateBudgetInput["budget_alerting"][K]
-  ) => {
-    setForm((prev) => ({
-      ...prev,
-      budget_alerting: {
-        ...prev.budget_alerting,
-        [key]: value,
-      },
-    }));
-  };
-
-  const handleAddRecipient = () => {
-    const trimmed = recipientInput.trim();
-    if (!trimmed) return;
-
-    setRecipientInput("");
-    updateAlerting("alert_recipients", Array.from(new Set([...form.budget_alerting.alert_recipients, trimmed])));
-  };
-
-  const handleRemoveRecipient = (recipient: string) => {
-    updateAlerting(
-      "alert_recipients",
-      form.budget_alerting.alert_recipients.filter((value) => value !== recipient)
-    );
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -266,6 +236,7 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
       budget_amount: Number(form.budget_amount),
       budget_entity_name: form.budget_entity_name?.trim() ?? "",
       budget_product_sku: form.budget_product_sku.trim(),
+      expires_at: form.expires_at?.trim() || undefined,
     };
 
     if (isTransfer && fromUserBudget) {
@@ -275,7 +246,6 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
         fromUserSpent,
         remaining: remainingTransferAmount,
         fromUserBudgetScope: fromUserBudget.budget_scope,
-        fromUserAlerting: fromUserBudget.budget_alerting,
       };
     }
 
@@ -434,50 +404,20 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
         />
       </div>
 
-      <div className="space-y-3">
-        <label className="text-sm font-medium">Alerting</label>
-        <Select
-          value={form.budget_alerting.will_alert ? "true" : "false"}
-          onValueChange={(value) => updateAlerting("will_alert", value === "true")}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Send alerts</SelectItem>
-            <SelectItem value="false">No alerts</SelectItem>
-          </SelectContent>
-        </Select>
-        {form.budget_alerting.will_alert && (
-          <div className="space-y-2">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                placeholder="Add GitHub username"
-                value={recipientInput}
-                onChange={(event) => setRecipientInput(event.target.value)}
-              />
-              <Button type="button" onClick={handleAddRecipient} disabled={!recipientInput.trim()}>
-                Add recipient
-              </Button>
-            </div>
-            {form.budget_alerting.alert_recipients.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {form.budget_alerting.alert_recipients.map((recipient) => (
-                  <Badge key={recipient} variant="secondary" className="flex items-center gap-2">
-                    @{recipient}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveRecipient(recipient)}
-                      className="rounded-full p-1 text-muted-foreground hover:bg-background"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+      <div className="space-y-2">
+        <label htmlFor="budget-expires-at" className="text-sm font-medium">
+          Expires on (Optional)
+        </label>
+        <Input
+          id="budget-expires-at"
+          type="date"
+          min={new Date().toISOString().slice(0, 10)}
+          value={form.expires_at || ""}
+          onChange={(event) => updateForm("expires_at", event.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Leave blank for a non-expiring budget. Alerting is not available for user-scoped budgets.
+        </p>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

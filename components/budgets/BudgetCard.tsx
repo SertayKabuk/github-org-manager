@@ -12,12 +12,13 @@ import {
 
 interface BudgetCardProps {
   budget: Budget;
+  onEdit?: (budget: Budget) => void;
   onDelete?: (budget: Budget) => void;
   deleting?: boolean;
   spent?: number;
 }
 
-export default function BudgetCard({ budget, onDelete, deleting = false, spent }: BudgetCardProps) {
+export default function BudgetCard({ budget, onEdit, onDelete, deleting = false, spent }: BudgetCardProps) {
   const hasUsageData = spent !== undefined;
   const budgetAmount = budget.budget_amount;
   const spentAmount = spent ?? 0;
@@ -40,6 +41,12 @@ export default function BudgetCard({ budget, onDelete, deleting = false, spent }
     if (percentage >= 100) return "bg-red-500";
     if (percentage >= 80) return "bg-amber-500";
     return "bg-blue-500";
+  };
+
+  const formatExpiresAt = (value: string) => {
+    // Parse as a plain calendar date (not UTC) so the displayed day doesn't shift with local timezone.
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, (month || 1) - 1, day || 1).toLocaleDateString();
   };
 
   return (
@@ -74,6 +81,18 @@ export default function BudgetCard({ budget, onDelete, deleting = false, spent }
         </div>
       </div>
 
+      {/* Expiration column */}
+      {budget.expires_at && (
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Expires</span>
+          </div>
+          <div className="text-sm">
+            {formatExpiresAt(budget.expires_at)}
+          </div>
+        </div>
+      )}
+
       {/* Usage progress column */}
       <div className="flex min-w-0 flex-[2] flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
@@ -102,7 +121,7 @@ export default function BudgetCard({ budget, onDelete, deleting = false, spent }
 
       {/* Actions menu */}
       <div>
-        {onDelete && (
+        {(onEdit || onDelete) && (
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -116,14 +135,26 @@ export default function BudgetCard({ budget, onDelete, deleting = false, spent }
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-48" align="end">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => onDelete(budget)}
-                disabled={deleting}
-              >
-                {deleting ? "Deleting..." : "Delete budget"}
-              </Button>
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => onEdit(budget)}
+                  disabled={deleting}
+                >
+                  Edit budget
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => onDelete(budget)}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting..." : "Delete budget"}
+                </Button>
+              )}
             </PopoverContent>
           </Popover>
         )}

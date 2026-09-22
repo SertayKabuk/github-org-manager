@@ -124,6 +124,7 @@ export interface Budget {
   budget_type: BudgetType;
   budget_product_sku?: string;
   budget_alerting: BudgetAlerting;
+  expires_at?: string | null;
   note?: string;
 }
 
@@ -135,11 +136,33 @@ export interface CreateBudgetInput {
   user?: string;
   budget_type: BudgetType;
   budget_product_sku: string;
-  budget_alerting: BudgetAlerting;
+  // Rejected by the GitHub API for user-scope budgets — omit entirely when budget_scope is "user".
+  budget_alerting?: BudgetAlerting;
+  // Only supported for user-scoped budgets. YYYY-MM-DD. Omit for non-expiring budgets.
+  expires_at?: string;
   note?: string;
 }
 
 export interface BudgetCreateResult {
+  message: string;
+  budget: Budget | null;
+}
+
+export interface UpdateBudgetInput {
+  budget_amount?: number;
+  prevent_further_usage?: boolean;
+  budget_scope?: BudgetScope;
+  budget_entity_name?: string;
+  user?: string;
+  budget_type?: BudgetType;
+  budget_product_sku?: string;
+  // Ignored by the GitHub API for user-scope budgets.
+  budget_alerting?: BudgetAlerting;
+  // Only dates in the future are accepted. Pass null to clear an existing expiration.
+  expires_at?: string | null;
+}
+
+export interface BudgetUpdateResult {
   message: string;
   budget: Budget | null;
 }

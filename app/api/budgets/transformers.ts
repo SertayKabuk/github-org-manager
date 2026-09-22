@@ -15,6 +15,7 @@ export interface RawBudgetPayload {
     will_alert?: boolean;
     alert_recipients?: string[];
   };
+  expires_at?: string | null;
 }
 
 export function mapBudget(payload: RawBudgetPayload): Budget {
@@ -38,5 +39,6 @@ export function mapBudget(payload: RawBudgetPayload): Budget {
         ? payload.budget_alerting.alert_recipients
         : [],
     },
+    expires_at: payload?.expires_at ?? undefined,
   };
 }

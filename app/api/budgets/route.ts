@@ -32,7 +32,20 @@ interface BudgetTransferInput {
   fromUserSpent: number;
   remaining: number;
   fromUserBudgetScope?: string;
-  fromUserAlerting?: BudgetAlertingInput;
+}
+
+const EXPIRES_AT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+// GitHub rejects budget_alerting for user-scope budgets and only accepts expires_at for them.
+function scopedCreateFields(
+  budgetScope: BudgetScope,
+  budgetAlerting: BudgetAlertingInput | undefined,
+  expiresAt: string | undefined
+) {
+  return {
+    ...(budgetScope !== "user" && budgetAlerting ? { budget_alerting: budgetAlerting } : {}),
+    ...(budgetScope === "user" && expiresAt ? { expires_at: expiresAt } : {}),
+  };
 }
 
 function validateBudgetPayload(body: CreateBudgetInput): string | null {
@@ -52,16 +65,32 @@ function validateBudgetPayload(body: CreateBudgetInput): string | null {
     return "Invalid budget type provided.";
   }
 
-  if (!body.budget_alerting || typeof body.budget_alerting.will_alert !== "boolean") {
-    return "Budget alerting configuration must include 'will_alert'.";
+  if (body.budget_scope === "user") {
+    if (body.budget_alerting) {
+      return "Budget alerting is not supported for user-scoped budgets.";
+    }
+  } else {
+    if (!body.budget_alerting || typeof body.budget_alerting.will_alert !== "boolean") {
+      return "Budget alerting configuration must include 'will_alert'.";
+    }
+
+    if (!Array.isArray(body.budget_alerting.alert_recipients)) {
+      return "Alert recipients must be an array of usernames.";
+    }
+
+    if (body.budget_alerting.alert_recipients.some((recipient) => typeof recipient !== "string")) {
+      return "All alert recipients must be strings.";
+    }
   }
 
-  if (!Array.isArray(body.budget_alerting.alert_recipients)) {
-    return "Alert recipients must be an array of usernames.";
-  }
+  if (body.expires_at !== undefined) {
+    if (body.budget_scope !== "user") {
+      return "expires_at is only supported for user-scoped budgets.";
+    }
 
-  if (body.budget_alerting.alert_recipients.some((recipient) => typeof recipient !== "string")) {
-    return "All alert recipients must be strings.";
+    if (!EXPIRES_AT_PATTERN.test(body.expires_at)) {
+      return "expires_at must be a date in YYYY-MM-DD format.";
+    }
   }
 
   return null;
@@ -134,7 +163,6 @@ export async function POST(request: NextRequest) {
         fromUserSpent,
         remaining,
         fromUserBudgetScope,
-        fromUserAlerting,
       } = body.transfer;
 
       const targetUser = body.budget_scope === "user"
@@ -195,7 +223,6 @@ export async function POST(request: NextRequest) {
           budget_entity_name: "",
           budget_type: "BundlePricing",
           budget_product_sku: "ai_credits",
-          budget_alerting: fromUserAlerting || { will_alert: false, alert_recipients: [] },
           user: fromUser,
           headers: {
             "X-GitHub-Api-Version": "2022-11-28",
@@ -237,6 +264,7 @@ export async function POST(request: NextRequest) {
                   budget_type: body.budget_type,
                   budget_product_sku: body.budget_product_sku,
                   user: targetUser,
+                  ...(body.expires_at ? { expires_at: body.expires_at } : {}),
                 }
               : {}),
             headers: {
@@ -251,7 +279,7 @@ export async function POST(request: NextRequest) {
             budget_entity_name: body.budget_scope === "user" ? "" : (body.budget_entity_name ?? ""),
             budget_type: body.budget_type,
             budget_product_sku: body.budget_product_sku,
-            budget_alerting: body.budget_alerting,
+            ...scopedCreateFields(body.budget_scope, body.budget_alerting, body.expires_at),
             user: body.budget_scope === "user" ? (body.user ?? body.budget_entity_name) : undefined,
             headers: {
               "X-GitHub-Api-Version": "2022-11-28",
@@ -289,7 +317,7 @@ export async function POST(request: NextRequest) {
         budget_entity_name: body.budget_scope === "user" ? "" : (body.budget_entity_name ?? ""),
         budget_type: body.budget_type,
         budget_product_sku: body.budget_product_sku,
-        budget_alerting: body.budget_alerting,
+        ...scopedCreateFields(body.budget_scope, body.budget_alerting, body.expires_at),
         user: body.budget_scope === "user" ? (body.user ?? body.budget_entity_name) : undefined,
         headers: {
           "X-GitHub-Api-Version": "2022-11-28",

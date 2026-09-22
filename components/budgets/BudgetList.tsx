@@ -5,12 +5,13 @@ import type { Budget } from "@/lib/types/github";
 
 interface BudgetListProps {
   budgets: Budget[];
+  onEdit?: (budget: Budget) => void;
   onDelete?: (budget: Budget) => void;
   deletingBudgetId?: string | null;
   usageData?: Record<string, number>;
 }
 
-export default function BudgetList({ budgets, onDelete, deletingBudgetId = null, usageData = {} }: BudgetListProps) {
+export default function BudgetList({ budgets, onEdit, onDelete, deletingBudgetId = null, usageData = {} }: BudgetListProps) {
   if (budgets.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
@@ -26,6 +27,7 @@ export default function BudgetList({ budgets, onDelete, deletingBudgetId = null,
         <BudgetCard
           key={budget.id}
           budget={budget}
+          onEdit={onEdit}
           onDelete={onDelete}
           deleting={deletingBudgetId === budget.id}
           spent={usageData[budget.id]}

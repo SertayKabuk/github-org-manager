@@ -6,20 +6,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import BudgetList from "@/components/budgets/BudgetList";
 import CreateBudgetForm from "@/components/budgets/CreateBudgetForm";
+import EditBudgetForm from "@/components/budgets/EditBudgetForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSpentAmountForBudget } from "@/lib/budget-usage";
 import { useBudgets, useCostCenters } from "@/lib/hooks";
-import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, CreateBudgetInput, BudgetScope, BillingUsageItem } from "@/lib/types/github";
+import type { ApiResponse, Budget, BudgetCreateResult, BudgetDeleteResult, BudgetUpdateResult, CreateBudgetInput, UpdateBudgetInput, BudgetScope, BillingUsageItem } from "@/lib/types/github";
 
 type BudgetCreationResponse = ApiResponse<BudgetCreateResult>;
+type BudgetUpdateResponse = ApiResponse<BudgetUpdateResult>;
 type BudgetDeleteResponse = ApiResponse<BudgetDeleteResult>;
-
-type BudgetAlertingInput = CreateBudgetInput["budget_alerting"];
 
 interface BudgetTransferInput {
   fromUser: string;
@@ -27,7 +28,6 @@ interface BudgetTransferInput {
   fromUserSpent: number;
   remaining: number;
   fromUserBudgetScope?: string;
-  fromUserAlerting?: BudgetAlertingInput;
 }
 
 interface BudgetTransaction {
@@ -42,6 +42,8 @@ interface BudgetTransaction {
 }
 
 type ScopeFilter = "all" | BudgetScope;
+type ConsumptionFilter = "all" | "exhausted" | "under";
+type ExpirationFilter = "all" | "none" | "set";
 
 import { withBasePath } from "@/lib/utils";
 
@@ -51,9 +53,15 @@ export default function BudgetsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [consumptionFilter, setConsumptionFilter] = useState<ConsumptionFilter>("all");
+  const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   const {
     data: budgets = [],
@@ -223,6 +231,51 @@ export default function BudgetsPage() {
     }
   };
 
+  const handleEditRequest = (budget: Budget) => {
+    setEditingBudget(budget);
+    setEditDialogOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    if (updating) return;
+    setEditDialogOpen(false);
+    setEditingBudget(null);
+  };
+
+  const handleUpdateBudget = async (data: UpdateBudgetInput) => {
+    if (!editingBudget) return;
+    setUpdating(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(withBasePath(`/api/budgets/${editingBudget.id}`), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      const json = (await response.json().catch(() => null)) as BudgetUpdateResponse | null;
+
+      if (!response.ok) {
+        throw new Error(json?.data.message ?? `Failed to update budget (${response.status})`);
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["budgets"] }),
+        queryClient.invalidateQueries({ queryKey: ["budget-usage-map"] }),
+      ]);
+      setEditDialogOpen(false);
+      setEditingBudget(null);
+    } catch (err) {
+      console.error(err);
+      setActionError(err instanceof Error ? err.message : "Failed to update budget.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleCreateBudget = async (data: CreateBudgetInput & {
     transfer?: BudgetTransferInput;
   }) => {
@@ -258,9 +311,30 @@ export default function BudgetsPage() {
   };
 
   const filteredBudgets = useMemo(() => {
-    if (scopeFilter === "all") return budgets;
-    return budgets.filter((budget) => budget.budget_scope === scopeFilter);
-  }, [budgets, scopeFilter]);
+    const query = searchQuery.trim().toLowerCase();
+
+    return budgets.filter((budget) => {
+      if (scopeFilter !== "all" && budget.budget_scope !== scopeFilter) return false;
+
+      if (query) {
+        const haystack = `${budget.budget_entity_name ?? ""} ${budget.user ?? ""}`.toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+
+      if (expirationFilter === "none" && budget.expires_at) return false;
+      if (expirationFilter === "set" && !budget.expires_at) return false;
+
+      if (consumptionFilter !== "all") {
+        const spent = usageData[budget.id];
+        if (spent === undefined) return false;
+        const isExhausted = budget.budget_amount > 0 && spent >= budget.budget_amount;
+        if (consumptionFilter === "exhausted" && !isExhausted) return false;
+        if (consumptionFilter === "under" && isExhausted) return false;
+      }
+
+      return true;
+    });
+  }, [budgets, scopeFilter, searchQuery, expirationFilter, consumptionFilter, usageData]);
 
   const stats = useMemo(() => {
     const total = budgets.length;
@@ -339,14 +413,20 @@ export default function BudgetsPage() {
         </Card>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Filter className="h-4 w-4" />
-          <span>Filter by scope</span>
+          <span>Filters</span>
         </div>
-        <div className="w-full md:w-64">
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+          <Input
+            placeholder="Search by user or entity name..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="w-full md:w-64"
+          />
           <Select value={scopeFilter} onValueChange={(value) => setScopeFilter(value as ScopeFilter)}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full md:w-48">
               <SelectValue placeholder="All scopes" />
             </SelectTrigger>
             <SelectContent>
@@ -355,10 +435,39 @@ export default function BudgetsPage() {
               <SelectItem value="organization">Organization</SelectItem>
               <SelectItem value="repository">Repository</SelectItem>
               <SelectItem value="cost_center">Cost Center</SelectItem>
+              <SelectItem value="user">User</SelectItem>
+              <SelectItem value="multi_user_customer">Multi-user customer</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={consumptionFilter} onValueChange={(value) => setConsumptionFilter(value as ConsumptionFilter)}>
+            <SelectTrigger className="w-full md:w-48">
+              <SelectValue placeholder="All consumption" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All consumption</SelectItem>
+              <SelectItem value="exhausted">Fully consumed</SelectItem>
+              <SelectItem value="under">Under budget</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={expirationFilter} onValueChange={(value) => setExpirationFilter(value as ExpirationFilter)}>
+            <SelectTrigger className="w-full md:w-48">
+              <SelectValue placeholder="All expirations" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All expirations</SelectItem>
+              <SelectItem value="none">No expiration date</SelectItem>
+              <SelectItem value="set">Has expiration date</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-sm text-muted-foreground md:ml-auto">
+            Showing {filteredBudgets.length} of {budgets.length}
+          </div>
         </div>
-        <div className="text-sm text-muted-foreground">Showing {filteredBudgets.length} of {budgets.length}</div>
+        {consumptionFilter !== "all" && (
+          <p className="text-xs text-muted-foreground">
+            Consumption filters only apply to budgets with available usage data (user, multi-user customer, and cost center scopes).
+          </p>
+        )}
       </div>
 
       {error && (
@@ -380,7 +489,13 @@ export default function BudgetsPage() {
         </Card>
       )}
 
-      <BudgetList budgets={filteredBudgets} onDelete={handleDeleteRequest} deletingBudgetId={deletingBudgetId} usageData={usageData} />
+      <BudgetList
+        budgets={filteredBudgets}
+        onEdit={handleEditRequest}
+        onDelete={handleDeleteRequest}
+        deletingBudgetId={deletingBudgetId}
+        usageData={usageData}
+      />
 
       <Card className="mt-8">
         <CardHeader>
@@ -463,6 +578,25 @@ export default function BudgetsPage() {
               {deletingBudgetId ? "Deleting..." : "Delete budget"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onOpenChange={(open) => (open ? setEditDialogOpen(true) : closeEditDialog())}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit budget</DialogTitle>
+            <DialogDescription>
+              Update the spending limit for {editingBudget?.budget_entity_name || editingBudget?.budget_scope || "this budget"}.
+            </DialogDescription>
+          </DialogHeader>
+          {editingBudget && (
+            <EditBudgetForm
+              budget={editingBudget}
+              onSubmit={handleUpdateBudget}
+              onCancel={closeEditDialog}
+              loading={updating}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

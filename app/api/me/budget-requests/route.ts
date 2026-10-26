@@ -4,9 +4,9 @@ import { requireAuth } from "@/lib/auth/helpers";
 import { getSession } from "@/lib/auth/session";
 import type { ApiResponse } from "@/lib/types/github";
 import type { BudgetRequestEntity } from "@/lib/entities/budget-request";
-import * as BudgetRepository from "@/lib/repositories/budget-repository";
 import * as BudgetRequestRepository from "@/lib/repositories/budget-request-repository";
-import { SELF_SERVICE_BUDGET_REQUEST_MAX, getUserScopedBudgetTotal } from "@/lib/budget-requests";
+import { SELF_SERVICE_BUDGET_REQUEST_MAX, SELF_SERVICE_BUDGET_REQUEST_STEP } from "@/lib/budget-requests";
+import { getBudgetRequestLimits } from "@/lib/services/budget-request-limits";
 
 /**
  * GET /api/me/budget-requests
@@ -40,7 +40,7 @@ export async function GET() {
 
 /**
  * POST /api/me/budget-requests
- * Submit a new self-service budget request, capped at $50 total.
+ * Submit a new self-service budget request in $10 steps, capped at $70 total.
  */
 export async function POST(request: NextRequest) {
   const authError = await requireAuth();
@@ -76,6 +76,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (requestedAmount % SELF_SERVICE_BUDGET_REQUEST_STEP !== 0) {
+    return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
+      {
+        data: null,
+        error: `Requested amount must be a multiple of $${SELF_SERVICE_BUDGET_REQUEST_STEP.toFixed(2)}.`,
+      },
+      { status: 400 }
+    );
+  }
+
   if (requestedAmount > SELF_SERVICE_BUDGET_REQUEST_MAX) {
     return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
       {
@@ -87,10 +97,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const existingBudgets = await BudgetRepository.findByUserLogin(login);
-    const currentTotal = getUserScopedBudgetTotal(existingBudgets);
+    const { current_budget: currentTotal, options } = await getBudgetRequestLimits(login);
 
-    if (currentTotal >= SELF_SERVICE_BUDGET_REQUEST_MAX) {
+    if (options.length === 0) {
       return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
         {
           data: null,
@@ -100,7 +109,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (requestedAmount <= currentTotal) {
+    if (!options.includes(requestedAmount)) {
       return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
         {
           data: null,

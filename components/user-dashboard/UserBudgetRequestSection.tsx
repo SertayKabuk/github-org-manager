@@ -10,8 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/ui/Loading";
-import { useMyBudgetRequests, useUserBudgets } from "@/lib/hooks";
-import { SELF_SERVICE_BUDGET_REQUEST_MAX, getUserScopedBudgetTotal } from "@/lib/budget-requests";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMyBudgetRequestLimits, useMyBudgetRequests } from "@/lib/hooks";
 import type { BudgetRequestEntity, BudgetRequestStatus } from "@/lib/entities/budget-request";
 import type { ApiResponse } from "@/lib/types/github";
 import { withBasePath } from "@/lib/utils";
@@ -49,7 +49,7 @@ function statusBadge(status: BudgetRequestStatus) {
 }
 
 export function UserBudgetRequestSection() {
-  const { data: budgets = [], isLoading: budgetsLoading, error: budgetsError } = useUserBudgets();
+  const { data: limits, isLoading: limitsLoading, error: limitsError } = useMyBudgetRequestLimits();
   const {
     data: requests = [],
     isLoading: requestsLoading,
@@ -57,26 +57,28 @@ export function UserBudgetRequestSection() {
     refetch: refetchRequests,
   } = useMyBudgetRequests();
 
-  const [amount, setAmount] = useState<number | "">(SELF_SERVICE_BUDGET_REQUEST_MAX);
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
-  const currentTotal = useMemo(() => getUserScopedBudgetTotal(budgets), [budgets]);
-  const atLimit = currentTotal >= SELF_SERVICE_BUDGET_REQUEST_MAX;
   const pendingRequest = useMemo(() => requests.find((r) => r.status === "pending"), [requests]);
 
-  if (budgetsLoading || requestsLoading) return <Loading />;
-  if (budgetsError) return <ErrorMessage message={budgetsError.message} />;
+  if (limitsLoading || requestsLoading) return <Loading />;
+  if (limitsError || !limits) return <ErrorMessage message={limitsError?.message ?? "Failed to load budget limits."} />;
+
+  const { current_budget: currentTotal, default_budget: defaultBudget, max, step, options: amountOptions } = limits;
+  const atLimit = amountOptions.length === 0;
+  const amount = selectedAmount !== null && amountOptions.includes(selectedAmount) ? selectedAmount : amountOptions[0];
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
     setFormSuccess(null);
 
-    if (amount === "" || !Number.isInteger(amount) || amount <= 0) {
-      setFormError("Enter a whole dollar amount (no cents).");
+    if (amount === undefined) {
+      setFormError("Select an amount to request.");
       return;
     }
 
@@ -110,12 +112,14 @@ export function UserBudgetRequestSection() {
         <CardHeader>
           <CardTitle>Request a Budget Increase</CardTitle>
           <CardDescription>
-            Self-service requests are capped at {formatCurrency(SELF_SERVICE_BUDGET_REQUEST_MAX)} total. An admin reviews every request before it takes effect.
+            Request more budget in {formatCurrency(step)} increments, up to{" "}
+            {formatCurrency(max)} total. An admin reviews every request before it takes effect.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Current budget: <span className="font-medium text-foreground">{formatCurrency(currentTotal)}</span>
+            <span className="ml-2">(company default: {formatCurrency(defaultBudget)})</span>
           </p>
 
           {atLimit ? (
@@ -123,7 +127,7 @@ export function UserBudgetRequestSection() {
               <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
               <p>
                 You already have {formatCurrency(currentTotal)} in budget, which meets or exceeds the{" "}
-                {formatCurrency(SELF_SERVICE_BUDGET_REQUEST_MAX)} self-service limit, so you can&apos;t request
+                {formatCurrency(max)} self-service limit, so you can&apos;t request
                 more from here. Contact an admin if you need additional budget.
               </p>
             </div>
@@ -143,21 +147,25 @@ export function UserBudgetRequestSection() {
                   <label htmlFor="request-amount" className="text-sm font-medium">
                     Requested total budget (USD)
                   </label>
-                  <Input
-                    id="request-amount"
-                    type="number"
-                    min={Math.floor(currentTotal) + 1}
-                    max={SELF_SERVICE_BUDGET_REQUEST_MAX}
-                    step={1}
-                    value={amount}
-                    onChange={(event) =>
-                      setAmount(event.target.value === "" ? "" : Number(event.target.value))
-                    }
-                    required
-                  />
+                  <Select
+                    value={amount !== undefined ? String(amount) : undefined}
+                    onValueChange={(value) => setSelectedAmount(Number(value))}
+                  >
+                    <SelectTrigger id="request-amount" className="w-full">
+                      <SelectValue placeholder="Select an amount" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {amountOptions.map((option) => (
+                        <SelectItem key={option} value={String(option)}>
+                          {formatCurrency(option)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground">
-                    Whole dollars only. Must be more than your current {formatCurrency(currentTotal)} and at
-                    most {formatCurrency(SELF_SERVICE_BUDGET_REQUEST_MAX)}.
+                    Choose a new total above your current {formatCurrency(currentTotal)}, in{" "}
+                    {formatCurrency(step)} steps up to{" "}
+                    {formatCurrency(max)}.
                   </p>
                 </div>
                 <div className="space-y-2">

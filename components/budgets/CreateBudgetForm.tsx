@@ -9,6 +9,7 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getSpentAmountForBudget } from "@/lib/budget-usage";
+import { findCompanyWideUserBudget, getDefaultUserBudgetAmount } from "@/lib/budget-requests";
 import { getFirstDayOfNextMonth, toDateInputValue, withBasePath } from "@/lib/utils";
 import {
   Select,
@@ -41,7 +42,7 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
   const { data: members = [], isLoading: membersLoading } = useMembers();
 
   const [form, setForm] = useState<CreateBudgetInput>({
-    budget_amount: 29, // Default to 29 USD as per user's template
+    budget_amount: getDefaultUserBudgetAmount(budgets),
     prevent_further_usage: true,
     budget_scope: "user",
     budget_entity_name: "",
@@ -91,8 +92,8 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
       setTargetUserBudget(existingBudget);
     } else {
       // Look up global budget limit
-      const globalBudget = budgets.find((b) => b.budget_scope === "multi_user_customer");
-      const globalLimit = globalBudget ? globalBudget.budget_amount : 29;
+      const globalBudget = findCompanyWideUserBudget(budgets);
+      const globalLimit = getDefaultUserBudgetAmount(budgets);
       const globalAlerting = globalBudget ? globalBudget.budget_alerting : { will_alert: true, alert_recipients: ["SertayKabuk"] };
       const globalPreventFurtherUsage = globalBudget ? globalBudget.prevent_further_usage : true;
       setTargetUserBudget({
@@ -163,8 +164,8 @@ export default function CreateBudgetForm({ onSubmit, onCancel, loading = false, 
       setFromUserBudget(existingBudget);
     } else {
       // Look up global budget limit
-      const globalBudget = budgets.find((b) => b.budget_scope === "multi_user_customer");
-      const globalLimit = globalBudget ? globalBudget.budget_amount : 29;
+      const globalBudget = findCompanyWideUserBudget(budgets);
+      const globalLimit = getDefaultUserBudgetAmount(budgets);
       const globalAlerting = globalBudget ? globalBudget.budget_alerting : { will_alert: true, alert_recipients: ["SertayKabuk"] };
       const globalPreventFurtherUsage = globalBudget ? globalBudget.prevent_further_usage : true;
       setFromUserBudget({

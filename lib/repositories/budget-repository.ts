@@ -68,6 +68,16 @@ export async function findByCostCenterName(costCenterName: string): Promise<Budg
 }
 
 /**
+ * Find company-wide per-user budgets (scope "multi_user_customer").
+ */
+export async function findCompanyWideUserBudgets(): Promise<Budget[]> {
+  const results = await query<BudgetEntity>(
+    "SELECT * FROM budgets WHERE data->>'budget_scope' = 'multi_user_customer'"
+  );
+  return results.map(r => r.data);
+}
+
+/**
  * Find user-scoped budgets assigned directly to a GitHub login.
  */
 export async function findByUserLogin(login: string): Promise<Budget[]> {

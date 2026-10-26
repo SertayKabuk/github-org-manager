@@ -12,4 +12,5 @@ export { useUserBillingUsage, type UseUserBillingUsageOptions } from "./use-user
 export { useUserCostCenter } from "./use-user-cost-center";
 export { useUserBudgets } from "./use-user-budgets";
 export { useMyBudgetRequests } from "./use-my-budget-requests";
+export { useMyBudgetRequestLimits } from "./use-my-budget-request-limits";
 export { useBudgetRequests, type UseBudgetRequestsOptions } from "./use-budget-requests";

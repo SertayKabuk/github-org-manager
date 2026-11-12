@@ -1,5 +1,5 @@
 # Multi-stage build for Next.js 16 application
-FROM node:lts-alpine AS base
+FROM node:24-alpine AS base
 
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
@@ -23,8 +23,10 @@ RUN cat /tmp/BG_SEProxy_CA.crt >> /etc/ssl/cert.pem \
 	&& update-ca-certificates
 ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm (corepack is no longer bundled with Node.js) - https://pnpm.io/docker
+# Keep this version in sync with "packageManager" in package.json
+COPY --from=ghcr.io/pnpm/pnpm:12.18.0-alpine /opt/pnpm /opt/pnpm
+RUN for bin in pnpm pn pnpx pnx; do ln -s "/opt/pnpm/$bin" "/usr/local/bin/$bin"; done
 
 # Install dependencies only when needed
 FROM base AS deps

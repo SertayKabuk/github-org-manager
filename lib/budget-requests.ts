@@ -3,19 +3,16 @@ import type { Budget } from "@/lib/types/github";
 /** Used as the default per-user budget only when no company-wide budget is configured. */
 export const FALLBACK_DEFAULT_USER_BUDGET_AMOUNT = 50;
 
-/** Maximum total user-scoped budget a user may reach via self-service requests. */
-export const SELF_SERVICE_BUDGET_REQUEST_MAX = 70;
-
-/** Self-service requests must land on multiples of this amount. */
+/** Each self-service request raises the user's budget by exactly this amount, with no upper cap. */
 export const SELF_SERVICE_BUDGET_REQUEST_STEP = 10;
 
 /** Self-service request limits resolved for a specific user. */
 export interface BudgetRequestLimits {
   current_budget: number;
   default_budget: number;
-  max: number;
   step: number;
-  options: number[];
+  /** The single total a user may request: current budget + step. */
+  requestable_amount: number;
 }
 
 /**
@@ -42,12 +39,7 @@ export function getUserScopedBudgetTotal(budgets: Budget[], defaultAmount: numbe
   return userBudgets.reduce((sum, budget) => sum + (budget.budget_amount ?? 0), 0);
 }
 
-/** Amounts a user may request: each $10 step above their current budget, up to the self-service max. */
-export function getSelfServiceRequestOptions(currentTotal: number): number[] {
-  const step = SELF_SERVICE_BUDGET_REQUEST_STEP;
-  const options: number[] = [];
-  for (let amount = (Math.floor(currentTotal / step) + 1) * step; amount <= SELF_SERVICE_BUDGET_REQUEST_MAX; amount += step) {
-    options.push(amount);
-  }
-  return options;
+/** The new total a user may request: their current budget plus one $10 step, regardless of how high it already is. */
+export function getSelfServiceRequestableAmount(currentTotal: number): number {
+  return currentTotal + SELF_SERVICE_BUDGET_REQUEST_STEP;
 }

@@ -48,4 +48,5 @@ docs
 # Docker
 Dockerfile
 docker-compose.yml
+docker-compose.traefik.yml
 .dockerignore

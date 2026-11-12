@@ -1,9 +1,8 @@
 import * as BudgetRepository from "@/lib/repositories/budget-repository";
 import {
-  SELF_SERVICE_BUDGET_REQUEST_MAX,
   SELF_SERVICE_BUDGET_REQUEST_STEP,
   getDefaultUserBudgetAmount,
-  getSelfServiceRequestOptions,
+  getSelfServiceRequestableAmount,
   getUserScopedBudgetTotal,
   type BudgetRequestLimits,
 } from "@/lib/budget-requests";
@@ -24,8 +23,7 @@ export async function getBudgetRequestLimits(login: string): Promise<BudgetReque
   return {
     current_budget: currentBudget,
     default_budget: defaultBudget,
-    max: SELF_SERVICE_BUDGET_REQUEST_MAX,
     step: SELF_SERVICE_BUDGET_REQUEST_STEP,
-    options: getSelfServiceRequestOptions(currentBudget),
+    requestable_amount: getSelfServiceRequestableAmount(currentBudget),
   };
 }

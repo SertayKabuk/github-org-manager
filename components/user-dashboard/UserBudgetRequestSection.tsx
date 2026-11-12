@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/ui/Loading";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMyBudgetRequestLimits, useMyBudgetRequests } from "@/lib/hooks";
 import type { BudgetRequestEntity, BudgetRequestStatus } from "@/lib/entities/budget-request";
 import type { ApiResponse } from "@/lib/types/github";
@@ -57,7 +56,6 @@ export function UserBudgetRequestSection() {
     refetch: refetchRequests,
   } = useMyBudgetRequests();
 
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -68,19 +66,12 @@ export function UserBudgetRequestSection() {
   if (limitsLoading || requestsLoading) return <Loading />;
   if (limitsError || !limits) return <ErrorMessage message={limitsError?.message ?? "Failed to load budget limits."} />;
 
-  const { current_budget: currentTotal, default_budget: defaultBudget, max, step, options: amountOptions } = limits;
-  const atLimit = amountOptions.length === 0;
-  const amount = selectedAmount !== null && amountOptions.includes(selectedAmount) ? selectedAmount : amountOptions[0];
+  const { current_budget: currentTotal, default_budget: defaultBudget, step, requestable_amount: amount } = limits;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
     setFormSuccess(null);
-
-    if (amount === undefined) {
-      setFormError("Select an amount to request.");
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -112,8 +103,8 @@ export function UserBudgetRequestSection() {
         <CardHeader>
           <CardTitle>Request a Budget Increase</CardTitle>
           <CardDescription>
-            Request more budget in {formatCurrency(step)} increments, up to{" "}
-            {formatCurrency(max)} total. An admin reviews every request before it takes effect.
+            Request a {formatCurrency(step)} increase to your current budget. An admin reviews every
+            request before it takes effect.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -122,16 +113,7 @@ export function UserBudgetRequestSection() {
             <span className="ml-2">(company default: {formatCurrency(defaultBudget)})</span>
           </p>
 
-          {atLimit ? (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
-              <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
-              <p>
-                You already have {formatCurrency(currentTotal)} in budget, which meets or exceeds the{" "}
-                {formatCurrency(max)} self-service limit, so you can&apos;t request
-                more from here. Contact an admin if you need additional budget.
-              </p>
-            </div>
-          ) : pendingRequest ? (
+          {pendingRequest ? (
             <div className="flex items-start gap-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 text-sm">
               <Clock className="h-5 w-5 shrink-0 text-blue-600" />
               <p>
@@ -147,25 +129,9 @@ export function UserBudgetRequestSection() {
                   <label htmlFor="request-amount" className="text-sm font-medium">
                     Requested total budget (USD)
                   </label>
-                  <Select
-                    value={amount !== undefined ? String(amount) : undefined}
-                    onValueChange={(value) => setSelectedAmount(Number(value))}
-                  >
-                    <SelectTrigger id="request-amount" className="w-full">
-                      <SelectValue placeholder="Select an amount" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {amountOptions.map((option) => (
-                        <SelectItem key={option} value={String(option)}>
-                          {formatCurrency(option)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input id="request-amount" type="text" value={formatCurrency(amount)} readOnly disabled />
                   <p className="text-xs text-muted-foreground">
-                    Choose a new total above your current {formatCurrency(currentTotal)}, in{" "}
-                    {formatCurrency(step)} steps up to{" "}
-                    {formatCurrency(max)}.
+                    Your current {formatCurrency(currentTotal)} plus {formatCurrency(step)}.
                   </p>
                 </div>
                 <div className="space-y-2">

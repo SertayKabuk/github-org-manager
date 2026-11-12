@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import type { ApiResponse } from "@/lib/types/github";
 import type { BudgetRequestEntity } from "@/lib/entities/budget-request";
 import * as BudgetRequestRepository from "@/lib/repositories/budget-request-repository";
-import { SELF_SERVICE_BUDGET_REQUEST_MAX, SELF_SERVICE_BUDGET_REQUEST_STEP } from "@/lib/budget-requests";
+import { SELF_SERVICE_BUDGET_REQUEST_STEP } from "@/lib/budget-requests";
 import { getBudgetRequestLimits } from "@/lib/services/budget-request-limits";
 
 /**
@@ -40,7 +40,7 @@ export async function GET() {
 
 /**
  * POST /api/me/budget-requests
- * Submit a new self-service budget request in $10 steps, capped at $70 total.
+ * Submit a new self-service budget request: the new total must be exactly current budget + $10 (no cap).
  */
 export async function POST(request: NextRequest) {
   const authError = await requireAuth();
@@ -69,51 +69,21 @@ export async function POST(request: NextRequest) {
 
   const requestedAmount = Number(body.requested_amount);
 
-  if (!Number.isInteger(requestedAmount) || requestedAmount <= 0) {
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
     return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
-      { data: null, error: "Requested amount must be a positive whole dollar amount." },
-      { status: 400 }
-    );
-  }
-
-  if (requestedAmount % SELF_SERVICE_BUDGET_REQUEST_STEP !== 0) {
-    return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
-      {
-        data: null,
-        error: `Requested amount must be a multiple of $${SELF_SERVICE_BUDGET_REQUEST_STEP.toFixed(2)}.`,
-      },
-      { status: 400 }
-    );
-  }
-
-  if (requestedAmount > SELF_SERVICE_BUDGET_REQUEST_MAX) {
-    return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
-      {
-        data: null,
-        error: `Requested amount cannot exceed $${SELF_SERVICE_BUDGET_REQUEST_MAX.toFixed(2)}.`,
-      },
+      { data: null, error: "Requested amount must be a positive dollar amount." },
       { status: 400 }
     );
   }
 
   try {
-    const { current_budget: currentTotal, options } = await getBudgetRequestLimits(login);
+    const { current_budget: currentTotal, requestable_amount: requestableAmount } = await getBudgetRequestLimits(login);
 
-    if (options.length === 0) {
+    if (Math.abs(requestedAmount - requestableAmount) > 0.001) {
       return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
         {
           data: null,
-          error: `You already have $${currentTotal.toFixed(2)} in budget, which meets or exceeds the $${SELF_SERVICE_BUDGET_REQUEST_MAX.toFixed(2)} self-service limit. Contact an admin if you need more.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!options.includes(requestedAmount)) {
-      return NextResponse.json<ApiResponse<BudgetRequestEntity | null>>(
-        {
-          data: null,
-          error: `Requested amount must be greater than your current budget ($${currentTotal.toFixed(2)}).`,
+          error: `Requested amount must be your current budget ($${currentTotal.toFixed(2)}) plus $${SELF_SERVICE_BUDGET_REQUEST_STEP.toFixed(2)}, i.e. $${requestableAmount.toFixed(2)}.`,
         },
         { status: 400 }
       );
@@ -133,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     const created = await BudgetRequestRepository.create({
       requested_by: login,
-      requested_amount: requestedAmount,
+      requested_amount: requestableAmount,
       current_budget_amount: currentTotal,
       reason: body.reason?.trim() || null,
     });
